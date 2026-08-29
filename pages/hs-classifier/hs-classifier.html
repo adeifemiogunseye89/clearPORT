@@ -1,0 +1,76 @@
+<div class="page-wrap">
+
+  <div class="page-header">
+    <div class="page-eyebrow"><span class="dot"></span> Nigeria Customs Tariff · Duty Calculator · Compliance Check</div>
+    <h1 class="page-title">HS Code <em>Classifier</em> &amp;<br><strong>Duty Calculator</strong></h1>
+    <p class="page-sub">Describe what you are importing in plain English. ClearAI identifies the correct HS code, calculates the applicable duty rate, flags required permits, and warns of common misclassification errors.</p>
+  </div>
+
+  <div class="link-options" style="margin-bottom:1.4rem">
+    <span class="link-opt" style="background:var(--gdim);border-color:rgba(58,125,95,0.3);color:var(--green2);font-weight:600;cursor:default">✓ Find My Code</span>
+    <span class="link-opt" onclick="navTo(document.querySelector('.nav-item[onclick*=\'ruling\']')||document.getElementById('btab-hs-class'),'ruling')" style="cursor:pointer">Check Against a Ruling I Have →</span>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat"><div class="stat-n">$9.3B</div><div class="stat-l">Lekki cargo 2025</div></div>
+    <div class="stat"><div class="stat-n">5,000+</div><div class="stat-l">HS codes in tariff</div></div>
+    <div class="stat"><div class="stat-n">#1</div><div class="stat-l">NSW rejection cause</div></div>
+  </div>
+
+  <div class="hs-layout">
+    <!-- INPUT CARD -->
+    <div class="hs-card">
+      <div class="hs-top">
+        <div class="hs-title">Classify Your Product</div>
+        <div class="hs-sub">Describe in plain English — no code knowledge needed</div>
+      </div>
+      <div class="hs-body">
+        <div class="form-label">Product Name or Type</div>
+        <input type="text" class="form-input" id="hs-product" placeholder="e.g. LED Smart Television, 43-inch">
+        <div class="form-label">Description of Use / Details</div>
+        <textarea class="form-textarea" id="hs-desc" placeholder="e.g. Consumer electronics for retail sale. Comes with built-in WiFi, Android OS, remote control. 200 units, imported from China."></textarea>
+        <div class="form-label">Try an example</div>
+        <div class="hs-examples">
+          <button class="hs-ex" onclick="fillHS('LED Smart TV 43-inch','Consumer electronics, Android OS, WiFi, 200 units from China for retail')">📺 Smart TV</button>
+          <button class="hs-ex" onclick="fillHS('Frozen chicken wings','Frozen poultry parts for food distribution, 200 metric tonnes from Brazil')">🍗 Frozen Poultry</button>
+          <button class="hs-ex" onclick="fillHS('Industrial diesel generator set','Standby power generators, 500 KVA, for commercial use, 5 units from Germany')">⚡ Generator</button>
+          <button class="hs-ex" onclick="fillHS('Paracetamol tablets 500mg','OTC pharmaceutical, blister pack, 50,000 units from India for pharmacy distribution')">💊 Pharmaceuticals</button>
+          <button class="hs-ex" onclick="fillHS('Portland cement','Grey Portland cement 42.5N, 10,000 metric tonnes from China for construction')">🏗️ Cement</button>
+        </div>
+        <button class="go-btn" id="hs-btn" onclick="runHS()" disabled style="width:100%;justify-content:center">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Classify &amp; Calculate Duty
+        </button>
+      </div>
+    </div>
+
+    <!-- RESULTS CARD -->
+    <div class="hs-card">
+      <div class="hs-top">
+        <div class="hs-title">Classification Result</div>
+        <div class="hs-sub" id="hs-res-sub">Enter product details and click classify</div>
+      </div>
+      <div class="hs-body">
+        <div id="hs-loading" style="display:none;text-align:center;padding:2rem 0">
+          <div class="spin-ring" style="margin:0 auto 1rem"></div>
+          <div style="font-size:12px;color:var(--text2)">Classifying against Nigeria Customs Tariff...</div>
+        </div>
+        <div id="hs-empty" style="text-align:center;padding:2rem 0;color:var(--text3)">
+          <div style="font-size:2.5rem;margin-bottom:10px;opacity:0.3">🔖</div>
+          <div style="font-size:12px">Classification results will appear here</div>
+        </div>
+        <div class="hs-result" id="hs-result">
+          <div class="hs-code-hero" id="hs-hero"></div>
+          <div class="rp-title" style="margin-bottom:8px">Tariff Details</div>
+          <div id="hs-details"></div>
+          <div class="rp-title" style="margin:10px 0 7px">Alternative Codes to Consider</div>
+          <div class="alts" id="hs-alts"></div>
+          <div class="rp-title" style="margin:10px 0 7px">Required Permits &amp; Certificates</div>
+          <div class="req-permits" id="hs-permits"></div>
+          <div class="hs-summary" id="hs-summary"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>

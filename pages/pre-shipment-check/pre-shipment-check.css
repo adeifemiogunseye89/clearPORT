@@ -1,0 +1,134 @@
+/* ══════════════════════════════════════
+   PRE-SHIPMENT CROSS-CHECKER STYLES
+══════════════════════════════════════ */
+.psc-intro {
+  background: linear-gradient(135deg, rgba(58,125,95,0.06), rgba(58,125,95,0.02));
+  border: 1px solid rgba(58,125,95,0.15);
+  border-radius: var(--rl); padding: 1.4rem 1.6rem;
+  margin-bottom: 1.5rem;
+  display: flex; gap: 1.2rem; align-items: flex-start; flex-wrap: wrap;
+}
+.psc-intro-icon { font-size: 2rem; flex-shrink: 0; }
+.psc-intro-text h3 {
+  font-family: var(--display); font-size: 1rem; font-weight: 600;
+  color: var(--text); margin-bottom: 4px;
+}
+.psc-intro-text p { font-size: 12.5px; color: var(--text2); line-height: 1.7; }
+.doc-upload-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px; margin-bottom: 1.5rem;
+}
+.doc-upload-slot {
+  background: var(--bg2); border: 1.5px dashed var(--border2);
+  border-radius: var(--rr); padding: 1.1rem;
+  transition: all 0.22s var(--ease); cursor: pointer; position: relative;
+}
+.doc-upload-slot:hover {
+  border-color: var(--green); background: var(--gdim);
+  transform: translateY(-1px);
+}
+.doc-upload-slot.has-content {
+  border-style: solid; border-color: var(--green);
+  background: rgba(58,125,95,0.04);
+}
+.doc-upload-slot.has-content .slot-placeholder { display: none; }
+.doc-upload-slot.has-content .slot-filled { display: block; }
+.slot-filled { display: none; }
+.slot-header {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px;
+}
+.slot-icon { font-size: 18px; flex-shrink: 0; }
+.slot-name { font-size: 12.5px; font-weight: 600; color: var(--text); }
+.slot-layer {
+  font-size: 9px; font-family: var(--mono); padding: 2px 6px;
+  border-radius: 3px; margin-left: auto;
+}
+.slot-layer-ncs { background: var(--gdim); color: var(--green2); }
+.slot-layer-reg { background: var(--adim); color: var(--amber); }
+.slot-layer-npa { background: var(--bdim); color: var(--blue); }
+.slot-placeholder {
+  font-size: 11px; color: var(--text3); line-height: 1.5;
+  font-family: var(--mono);
+}
+.slot-textarea {
+  width: 100%; font-family: var(--mono); font-size: 11px;
+  padding: 8px 10px; border-radius: 6px; resize: vertical; min-height: 80px;
+  border: 1px solid var(--border2); background: var(--bg);
+  color: var(--text); outline: none; line-height: 1.6;
+  transition: border-color 0.2s; margin-top: 6px;
+}
+.slot-textarea:focus { border-color: var(--green); }
+.slot-char-count { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-top: 4px; }
+.slot-clear {
+  position: absolute; top: 8px; right: 8px;
+  font-size: 10px; color: var(--red); cursor: pointer;
+  background: var(--rdim); border: 1px solid rgba(184,64,64,0.2);
+  border-radius: 4px; padding: 2px 7px; display: none;
+  transition: all 0.15s;
+}
+.doc-upload-slot.has-content .slot-clear { display: inline-block; }
+.psc-action-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+}
+.psc-status { font-size: 12px; color: var(--text3); font-family: var(--mono); }
+.psc-status span { color: var(--green2); font-weight: 600; }
+/* Cross-check results */
+.psc-results { display: none; }
+.psc-results.on { display: block; animation: fadeUp 0.4s var(--ease) both; }
+.cross-verdict {
+  border-radius: var(--rl); padding: 1.2rem 1.6rem;
+  margin-bottom: 1.2rem;
+  display: flex; gap: 1rem; align-items: flex-start; flex-wrap: wrap;
+}
+.cv-clean { background: rgba(58,125,95,0.06); border: 1.5px solid rgba(58,125,95,0.2); }
+.cv-issues { background: rgba(184,64,64,0.06); border: 1.5px solid rgba(184,64,64,0.18); }
+.cv-warnings { background: rgba(192,122,42,0.06); border: 1.5px solid rgba(192,122,42,0.18); }
+.cross-verdict-icon { font-size: 1.8rem; flex-shrink: 0; }
+.cross-verdict-body h3 {
+  font-family: var(--display); font-size: 1rem; font-weight: 700;
+  color: var(--text); margin-bottom: 4px;
+}
+.cross-verdict-body p { font-size: 13px; color: var(--text2); line-height: 1.6; }
+.mismatch-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px; margin-bottom: 1.2rem;
+}
+.mismatch-card {
+  border-radius: var(--rr); padding: 1rem 1.1rem;
+  box-shadow: var(--shadow-sm);
+}
+.mc-error { background: rgba(184,64,64,0.06); border: 1px solid rgba(184,64,64,0.15); }
+.mc-warning { background: rgba(192,122,42,0.06); border: 1px solid rgba(192,122,42,0.15); }
+.mc-ok { background: rgba(58,125,95,0.05); border: 1px solid rgba(58,125,95,0.14); }
+.mc-header { display: flex; align-items: center; gap: 7px; margin-bottom: 6px; }
+.mc-sev { font-size: 11px; font-family: var(--mono); font-weight: 600;
+  padding: 2px 7px; border-radius: 4px; }
+.mc-sev-e { color: var(--red); background: var(--rdim); border: 1px solid rgba(184,64,64,0.2); }
+.mc-sev-w { color: var(--amber); background: var(--adim); border: 1px solid rgba(192,122,42,0.2); }
+.mc-sev-o { color: var(--green2); background: var(--gdim); border: 1px solid rgba(58,125,95,0.2); }
+.mc-field { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-left: auto; }
+.mc-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.mc-detail { font-size: 12px; color: var(--text2); line-height: 1.55; }
+.mc-docs { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 7px; }
+.mc-doc-tag {
+  font-size: 10px; padding: 2px 7px; border-radius: 4px;
+  font-family: var(--mono); background: var(--bg3);
+  border: 1px solid var(--border2); color: var(--text3);
+}
+.field-comparison-table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+.fct th {
+  font-size: 10px; font-family: var(--mono); letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text3); padding: 8px 12px;
+  text-align: left; border-bottom: 2px solid var(--border); background: var(--bg3);
+}
+.fct td {
+  font-size: 12px; color: var(--text2); padding: 9px 12px;
+  border-bottom: 1px solid var(--border); font-family: var(--mono);
+  transition: background 0.15s;
+}
+.fct tr:hover td { background: rgba(58,125,95,0.02); }
+.fct td.match { color: var(--green2); }
+.fct td.mismatch { color: var(--red); font-weight: 600; }
+.fct td.field-name { font-family: var(--body); color: var(--text3); font-size: 11.5px; }
+

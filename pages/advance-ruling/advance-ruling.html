@@ -1,0 +1,54 @@
+<div class="page-wrap">
+
+  <div class="page-header">
+    <div class="page-eyebrow"><span class="dot"></span> AI-Assisted Verification · NCS Advance Ruling System</div>
+    <h1 class="page-title">Advance Ruling <em>Consistency</em><br><strong>Checker</strong></h1>
+    <p class="page-sub">NCS issues binding Advance Rulings on HS code classification before importation — 173 issued, 137 published as of December 2025. Enter your ruling reference and declared HS code, and ClearAI checks whether they look consistent based on published ruling patterns.</p>
+  </div>
+
+  <div class="link-options" style="margin-bottom:1.4rem">
+    <span class="link-opt" onclick="navTo(document.querySelector('.nav-item[onclick*=\'hs-class\']')||document.getElementById('btab-hs-class'),'hs-class')" style="cursor:pointer">← Find My Code</span>
+    <span class="link-opt" style="background:var(--gdim);border-color:rgba(58,125,95,0.3);color:var(--green2);font-weight:600;cursor:default">✓ Check Against a Ruling I Have</span>
+  </div>
+
+  <div class="alert alert-amber" style="border-radius:var(--rl);padding:1.1rem 1.4rem;margin-bottom:1.5rem;display:flex;gap:12px;align-items:flex-start;background:var(--adim);border:1px solid rgba(192,122,42,0.25)">
+    <span style="font-size:16px;flex-shrink:0">⚠️</span>
+    <div style="font-size:12.5px;color:#7a4a10;line-height:1.65">
+      <b style="display:block;margin-bottom:2px;font-weight:600">This is AI-assisted verification, not a live database lookup</b>
+      ClearAI does not connect to NCS's Advance Ruling database in real time — no public API exists for that yet. Claude checks your inputs against its knowledge of published ruling patterns and flags obvious inconsistencies. Always confirm the ruling itself on the official NCS Advance Ruling portal before relying on it.
+    </div>
+  </div>
+
+  <div class="checker-card">
+    <div class="cc-header">
+      <div>
+        <div class="cc-title">Check Ruling Consistency</div>
+        <div class="cc-sub">Enter what you have — the more detail, the better the check</div>
+      </div>
+    </div>
+    <div class="hs-body" style="padding:1.3rem 1.5rem">
+      <div class="form-label">Advance Ruling Reference Number</div>
+      <input type="text" class="form-input" id="ar-ruling-no" placeholder="e.g. AR/2025/0137">
+      <div class="form-label">Declared HS Code on Your Shipment</div>
+      <input type="text" class="form-input" id="ar-hscode" placeholder="e.g. 8528.72.00">
+      <div class="form-label">Product Description</div>
+      <textarea class="form-textarea" id="ar-desc" placeholder="Describe the product exactly as it appears on your invoice / Form M..."></textarea>
+      <div class="hs-examples">
+        <button class="hs-ex" onclick="fillRuling('AR/2025/0137','8528.72.00','43-inch LED Smart TV, Android OS, for retail sale')">📺 TV ruling example</button>
+        <button class="hs-ex" onclick="fillRuling('AR/2025/0089','8502.11.00','Diesel generator set, 500 KVA standby power')">⚡ Generator ruling example</button>
+      </div>
+      <button class="go-btn" id="ar-btn" onclick="runRulingCheck()" disabled style="width:100%;justify-content:center;margin-top:6px">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+        Check Consistency
+      </button>
+
+      <div id="ar-loading" style="display:none;text-align:center;padding:2rem 0">
+        <div class="spin-ring" style="margin:0 auto 1rem"></div>
+        <div style="font-size:12px;color:var(--text2)">Checking against published ruling patterns...</div>
+      </div>
+
+      <div id="ar-result" style="display:none;margin-top:1.2rem;padding-top:1.2rem;border-top:1px solid var(--border)"></div>
+    </div>
+  </div>
+
+</div>

@@ -1,0 +1,141 @@
+<div class="page-wrap">
+
+  <div class="page-header">
+    <div class="page-eyebrow"><span class="dot"></span> Supplier Collaboration · Pre-Shipment Error Prevention</div>
+    <h1 class="page-title">Supplier <em>Compliance</em><br><strong>Portal</strong></h1>
+    <p class="page-sub">Generate a no-login shareable link and send it to your supplier in China, Dubai, or Europe. They upload their draft Invoice and Packing List — ClearAI checks it against your Form M before they send Shipping Instructions to the carrier, while corrections still cost nothing instead of a paid Bill of Lading amendment later.</p>
+  </div>
+
+  <div class="scp-header-card">
+    <div class="psc-intro-icon">🔗</div>
+    <div class="psc-intro-text">
+      <h3>Why this eliminates the most expensive document errors</h3>
+      <p>Most invoice mismatches originate with the foreign supplier — not the clearing agent, and not the carrier. No login is required — suppliers open a link and upload, nothing more. Note: the supplier cannot amend the Bill of Lading itself — that's issued by the shipping line. What they can fix for free is their own Invoice and Packing List, and the Shipping Instruction they send the carrier, before that B/L is ever cut.</p>
+      <div class="scp-flow" style="margin-top:10px">
+        <div class="scp-flow-node">📋 You create link</div>
+        <div class="scp-flow-arr">→</div>
+        <div class="scp-flow-node">📧 Send to supplier</div>
+        <div class="scp-flow-arr">→</div>
+        <div class="scp-flow-node">📤 Supplier uploads Invoice + PL</div>
+        <div class="scp-flow-arr">→</div>
+        <div class="scp-flow-node highlight">✓ AI checks vs your Form M</div>
+        <div class="scp-flow-arr">→</div>
+        <div class="scp-flow-node">✏️ Supplier fixes before Shipping Instruction</div>
+      </div>
+      <div class="alert-ink" style="margin-top:10px;padding:10px 12px;border-radius:8px;font-size:11.5px;color:var(--text2);border:1px solid var(--border)">
+        ℹ️ If an error is only caught after the B/L is already issued, that requires a paid carrier amendment (typically $50–$200) — not something this portal or the supplier can do directly. Catching it here, before Shipping Instructions go out, is what keeps it free.
+      </div>
+    </div>
+  </div>
+
+  <!-- LINK GENERATOR -->
+  <div class="link-generator">
+    <div class="lg-top">
+      <div class="cc-title">Generate Supplier Check Link</div>
+      <div class="cc-sub">Fill in the shipment details — then share the link with your supplier</div>
+    </div>
+    <div class="lg-body">
+      <div class="link-fields">
+        <div class="lf-group">
+          <label class="cc-label">Your Company / Agent Name</label>
+          <input type="text" class="form-input" id="scp-agent" placeholder="e.g. Nexus Clearing Ltd" oninput="updateSupplierLink()" style="margin-bottom:0">
+        </div>
+        <div class="lf-group">
+          <label class="cc-label">Supplier / Vendor Name</label>
+          <input type="text" class="form-input" id="scp-supplier" placeholder="e.g. Guangdong Electronics Co." oninput="updateSupplierLink()" style="margin-bottom:0">
+        </div>
+        <div class="lf-group">
+          <label class="cc-label">Shipment Reference / PO Number</label>
+          <input type="text" class="form-input" id="scp-ref" placeholder="e.g. PO-2026-4821" oninput="updateSupplierLink()" style="margin-bottom:0">
+        </div>
+        <div class="lf-group">
+          <label class="cc-label">Destination Port</label>
+          <select class="port-select" id="scp-port" oninput="updateSupplierLink()" style="font-size:13px;padding:10px 13px">
+            <option>Lekki Deep Sea Port</option>
+            <option>Apapa Port Complex</option>
+            <option>Tin Can Island Port</option>
+            <option>Onne Port Complex</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-label">Documents requested from supplier</div>
+      <div class="link-options" style="margin-bottom:1.2rem">
+        <label class="link-opt"><input type="checkbox" id="req-invoice" checked> 🧾 Commercial Invoice</label>
+        <label class="link-opt"><input type="checkbox" id="req-packing" checked> 📦 Packing List</label>
+        <label class="link-opt"><input type="checkbox" id="req-cert"> ✅ Certificate of Origin</label>
+        <label class="link-opt"><input type="checkbox" id="req-soncap"> 🏷️ SONCAP Certificate (if applicable)</label>
+      </div>
+      <div style="font-size:10.5px;color:var(--text3);font-family:var(--mono);margin:-6px 0 14px">Bill of Lading isn't requested here — it's issued later by the carrier, not the supplier. Check that separately once the shipping line drafts it.</div>
+
+      <div class="cc-label">Generated Shareable Link</div>
+      <div class="link-preview">
+        <span class="lp-url" id="scp-link-display">Fill in the fields above to generate your link</span>
+        <button class="btn-copy-link" id="scp-copy-btn" onclick="copySupplierLink()" disabled>Copy Link</button>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn-sm btn-out" onclick="sendWhatsApp()">📱 Share via WhatsApp</button>
+        <button class="btn-sm btn-out" onclick="sendEmail()">📧 Open in Email</button>
+        <button class="go-btn" onclick="simulateSupplierSubmission()" style="padding:9px 20px;font-size:13px">
+          Preview supplier experience →
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SUBMISSIONS INBOX -->
+  <div class="checker-card">
+    <div class="cc-header">
+      <div>
+        <div class="cc-title">Supplier Submissions Inbox</div>
+        <div class="cc-sub">Documents submitted by your suppliers — AI-checked on receipt</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="nsw-chip" style="color:var(--green2);border-color:rgba(58,125,95,0.2);background:var(--gdim)">● Live</span>
+      </div>
+    </div>
+    <div style="padding:1.2rem 1.5rem">
+      <div class="submission-list" id="scp-inbox">
+
+        <div class="sub-item">
+          <span class="sub-icon">🧾</span>
+          <div style="flex:1">
+            <div class="sub-name">Commercial Invoice + Packing List</div>
+            <div class="sub-from">From: Guangdong Electronics Co. · PO-2026-4821</div>
+          </div>
+          <div class="sub-time">2 hrs ago</div>
+          <span class="sub-status ss-issues">⚠ 2 issues</span>
+          <button class="btn-sm btn-out" onclick="reviewSubmission()" style="flex-shrink:0">Review</button>
+        </div>
+
+        <div class="sub-item">
+          <span class="sub-icon">📦</span>
+          <div style="flex:1">
+            <div class="sub-name">Packing List + SONCAP Draft</div>
+            <div class="sub-from">From: Shanghai Steel Corp · PO-2026-3901</div>
+          </div>
+          <div class="sub-time">Yesterday</div>
+          <span class="sub-status ss-checked">✓ Clear</span>
+          <button class="btn-sm btn-out" onclick="reviewSubmission()" style="flex-shrink:0">View</button>
+        </div>
+
+        <div class="sub-item">
+          <span class="sub-icon">🧾</span>
+          <div style="flex:1">
+            <div class="sub-name">Commercial Invoice + Packing List</div>
+            <div class="sub-from">From: Mumbai Pharma Exports · PO-2026-3744</div>
+          </div>
+          <div class="sub-time">2 days ago</div>
+          <span class="sub-status ss-pending">⏳ Pending check</span>
+          <button class="btn-sm btn-out" onclick="reviewSubmission()" style="flex-shrink:0">Check now</button>
+        </div>
+
+      </div>
+      <div style="margin-top:1rem;font-size:11px;color:var(--text3);font-family:var(--mono);padding:10px;background:var(--bg3);border-radius:7px;border:1px solid var(--border)">
+        ℹ This inbox is illustrative — wiring it to real incoming submissions needs a backend (see Phase 1 in the production roadmap). Click "Preview supplier experience" below to see the actual AI check run live with your API key.
+      </div>
+    </div>
+  </div>
+
+</div>

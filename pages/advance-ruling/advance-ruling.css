@@ -1,0 +1,37 @@
+/* ══════════════════════════════════════
+   ADVANCE RULING CHECKER — page-specific styles
+   Most of this page reuses .page-header, .link-options,
+   .checker-card, .hs-body/.form-label/.form-input/.form-textarea,
+   .hs-examples/.hs-ex, .go-btn and .spin-ring from
+   css/components.css. That's expected and correct;
+   not every page needs a large stylesheet.
+
+   The block below is the one thing that WAS genuinely missing:
+   runRulingCheck() renders a `.verdict-chip` with `.v-dot`/`.v-clear`/
+   `.v-warning`/`.v-error` modifiers, but no rule for any of them
+   existed anywhere in the original 1,806-line stylesheet, so the
+   verdict box rendered as plain unstyled text. This gives it real
+   styling, built from the same badge vocabulary the rest of the app
+   already uses (see .vchip/.vc-clear/.vc-warn/.vc-err in
+   doc-validation.css and .nsw-ready/.nr-yes/.nr-no/.nr-cond) — same
+   color tokens, same pill shape, same dot-with-glow treatment — so
+   it reads as part of the same product rather than a bolted-on
+   placeholder. Adjust freely; this is a starting point, not a fixed
+   design.
+══════════════════════════════════════ */
+
+.verdict-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 15px; border-radius: 7px;
+  font-family: var(--display); font-size: 12.5px; font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+.v-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+.v-clear   { background: rgba(58,125,95,0.1);  color: var(--green2); border: 1px solid rgba(58,125,95,0.22); }
+.v-warning { background: rgba(192,122,42,0.1); color: var(--amber);  border: 1px solid rgba(192,122,42,0.22); }
+.v-error   { background: rgba(184,64,64,0.1);  color: var(--red);    border: 1px solid rgba(184,64,64,0.22); }
+
+.v-clear   .v-dot { background: var(--green); box-shadow: 0 0 5px rgba(58,125,95,0.4); }
+.v-warning .v-dot { background: var(--amber); box-shadow: 0 0 5px rgba(192,122,42,0.4); }
+.v-error   .v-dot { background: var(--red);   box-shadow: 0 0 5px rgba(184,64,64,0.4); }

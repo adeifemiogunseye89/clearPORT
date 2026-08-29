@@ -1,0 +1,85 @@
+/* ══════════════════════════════════════
+   SUPPLIER COMPLIANCE PORTAL STYLES
+══════════════════════════════════════ */
+.scp-header-card {
+  background: linear-gradient(135deg, rgba(58,111,168,0.06), rgba(58,111,168,0.02));
+  border: 1px solid rgba(58,111,168,0.15);
+  border-radius: var(--rl); padding: 1.4rem 1.6rem; margin-bottom: 1.5rem;
+  display: flex; gap: 1.2rem; align-items: flex-start; flex-wrap: wrap;
+}
+.scp-flow {
+  display: flex; align-items: center; gap: 8px;
+  flex-wrap: wrap; margin: 1rem 0;
+}
+.scp-flow-node {
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 8px; padding: 8px 14px; font-size: 12px;
+  color: var(--text2); display: flex; align-items: center; gap: 6px;
+  box-shadow: var(--shadow-xs);
+}
+.scp-flow-node.highlight {
+  background: var(--gdim); border-color: rgba(58,125,95,0.3);
+  color: var(--green2); font-weight: 600;
+}
+.scp-flow-arr { color: var(--text3); font-size: 14px; flex-shrink: 0; }
+.link-generator {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--rl); overflow: hidden;
+  box-shadow: var(--shadow-lg); margin-bottom: 1.5rem;
+}
+.lg-top {
+  background: var(--bg3); border-bottom: 1px solid var(--border);
+  padding: 1.1rem 1.5rem;
+}
+.lg-body { padding: 1.3rem 1.5rem; }
+.link-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.2rem; }
+@media(max-width:580px) { .link-fields { grid-template-columns: 1fr; } }
+.lf-group { display: flex; flex-direction: column; gap: 6px; }
+.link-preview {
+  background: var(--bg); border: 1px solid var(--border2);
+  border-radius: 8px; padding: 12px 14px;
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 1.2rem; flex-wrap: wrap;
+}
+.lp-url {
+  font-family: var(--mono); font-size: 12px; color: var(--text2);
+  flex: 1; word-break: break-all;
+}
+.lp-url.active { color: var(--green2); }
+.btn-copy-link {
+  font-family: var(--body); font-size: 12px; font-weight: 600;
+  padding: 7px 16px; border-radius: 7px; border: none; cursor: pointer;
+  background: var(--blue); color: #fff; flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(58,111,168,0.25);
+  transition: all 0.2s var(--ease);
+}
+.btn-copy-link:hover { background: #2d5e9a; transform: translateY(-1px); }
+.btn-copy-link:disabled { opacity: 0.4; cursor: not-allowed; }
+/* .link-options / .link-opt moved to css/components.css — used by nearly every tool page */
+/* Submitted documents (simulated) */
+.submission-list { display: flex; flex-direction: column; gap: 8px; margin-top: 1rem; }
+.sub-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 11px 14px; border-radius: 9px;
+  border: 1px solid var(--border); background: var(--bg2);
+  box-shadow: var(--shadow-xs);
+  transition: all 0.2s var(--ease);
+}
+.sub-item:hover { border-color: var(--border2); box-shadow: var(--shadow-sm); }
+.sub-icon { font-size: 18px; flex-shrink: 0; }
+.sub-name { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; }
+.sub-from { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+.sub-time { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.sub-status {
+  font-size: 10px; padding: 3px 9px; border-radius: 4px;
+  font-family: var(--mono); font-weight: 600; flex-shrink: 0;
+}
+.ss-pending { background: var(--adim); color: var(--amber); border: 1px solid rgba(192,122,42,0.2); }
+.ss-checked { background: var(--gdim); color: var(--green2); border: 1px solid rgba(58,125,95,0.2); }
+.ss-issues { background: var(--rdim); color: var(--red); border: 1px solid rgba(184,64,64,0.2); }
+
+
+/* Recovered from the legacy "Ops Report" CSS block — still genuinely
+   used here by the #scp-port dropdown, not actually dead code. */
+.port-select { width: 100%; font-family: var(--body); font-size: 13px; padding: 9px 13px; border-radius: 8px; border: 1px solid var(--border2); background: var(--bg); color: var(--text); outline: none; cursor: pointer; box-shadow: var(--shadow-xs); transition: border-color var(--t-med), box-shadow var(--t-med); }
+.port-select:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(58,125,95,0.1); }

@@ -1,0 +1,192 @@
+<div class="page-wrap">
+
+  <div class="page-header">
+    <div class="page-eyebrow"><span class="dot"></span> Flexible Rate Calculator · Real-Time Risk Exposure</div>
+    <h1 class="page-title">Demurrage <em>Risk</em><br><strong>Calculator</strong></h1>
+    <p class="page-sub">Rates vary by shipping line, container size and terminal — so nothing here is hardcoded. Enter your own rates and free days, then optionally add delay scenarios like a missing permit. ClearAI shows your exposure as a <strong>range</strong>, not a false-precision figure, because no calculator can predict every delay.</p>
+  </div>
+
+  <div class="dem-layout">
+
+    <!-- INPUTS -->
+    <div class="dem-inputs">
+      <div style="background:var(--bg3);border-bottom:1px solid var(--border);padding:1.1rem 1.5rem">
+        <div class="cc-title">Your Shipment Details</div>
+        <div class="cc-sub">All rates are user-defined — no hardcoded values</div>
+      </div>
+
+      <!-- Shipment info -->
+      <div class="dem-section">
+        <div class="dem-section-title">Shipment</div>
+        <div class="input-row">
+          <div class="input-group">
+            <label class="ig-label">Container count <span class="ig-hint">units</span></label>
+            <input type="number" class="dem-input" id="dem-containers" value="1" min="1" max="500" oninput="recalcDemurrage()">
+          </div>
+          <div class="input-group">
+            <label class="ig-label">Container type</label>
+            <select class="dem-select" id="dem-type" onchange="recalcDemurrage()">
+              <option value="20GP">20ft Standard</option>
+              <option value="40GP" selected>40ft Standard</option>
+              <option value="40HC">40ft High Cube</option>
+              <option value="20RF">20ft Reefer</option>
+              <option value="40RF">40ft Reefer</option>
+            </select>
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="ig-label">Port / Terminal</label>
+          <select class="dem-select" id="dem-port" onchange="recalcDemurrage()">
+            <option>Lekki Deep Sea Port</option>
+            <option>Apapa Port Complex</option>
+            <option>Tin Can Island Port</option>
+            <option>Onne Port Complex</option>
+            <option>Other Nigerian Port</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Free days -->
+      <div class="dem-section">
+        <div class="dem-section-title">Free Days</div>
+        <div class="input-row">
+          <div class="input-group">
+            <label class="ig-label">Terminal free days <span class="ig-hint">days</span></label>
+            <input type="number" class="dem-input" id="dem-free-terminal" value="5" min="0" max="30" oninput="recalcDemurrage()">
+          </div>
+          <div class="input-group">
+            <label class="ig-label">Shipping line free days <span class="ig-hint">days</span></label>
+            <input type="number" class="dem-input" id="dem-free-line" value="7" min="0" max="30" oninput="recalcDemurrage()">
+          </div>
+        </div>
+        <div class="input-group">
+          <label class="ig-label">Vessel arrival date</label>
+          <input type="date" class="dem-input" id="dem-arrival" oninput="recalcDemurrage()">
+        </div>
+        <div class="input-group">
+          <label class="ig-label">Expected clearance date</label>
+          <input type="date" class="dem-input" id="dem-clearance" oninput="recalcDemurrage()">
+        </div>
+      </div>
+
+      <!-- Demurrage tiers — fully flexible, user-defined -->
+      <div class="dem-section">
+        <div class="dem-section-title">Demurrage Rate Tiers (₦ per container per day)</div>
+
+        <div class="form-label" style="margin-top:0">Start from a shipping line preset (optional)</div>
+        <select class="dem-select" id="dem-line-preset" onchange="applyLinePreset()" style="margin-bottom:10px">
+          <option value="">— Manual entry (no preset) —</option>
+          <option value="maersk">Maersk — typical published rate</option>
+          <option value="msc">MSC — typical published rate</option>
+          <option value="cma">CMA CGM — typical published rate</option>
+          <option value="hapag">Hapag-Lloyd — typical published rate</option>
+        </select>
+        <div style="font-size:10.5px;color:var(--text3);font-family:var(--mono);margin-bottom:12px">
+          Presets are typical published starting rates — always confirm against your actual contract. Not listed? Leave on manual entry and type your own rates below.
+        </div>
+
+        <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:12px">
+          Enter your actual port rates. Add or remove tiers as needed.
+        </div>
+        <div style="display:grid;grid-template-columns:60px 1fr 1fr;gap:6px;margin-bottom:6px">
+          <span class="tier-lbl">Tier</span>
+          <span class="tier-lbl">Days (after free period)</span>
+          <span class="tier-lbl">Rate (₦ / container / day)</span>
+        </div>
+        <div id="dem-tiers">
+          <div class="tier-row" data-tier="1">
+            <span class="tier-lbl">Tier 1</span>
+            <input type="text" class="dem-input" placeholder="1 – 5" value="1 – 5" oninput="recalcDemurrage()" style="font-size:12px;padding:7px 10px">
+            <input type="number" class="dem-input" value="100000" min="0" oninput="recalcDemurrage()" style="font-size:12px;padding:7px 10px">
+          </div>
+          <div class="tier-row" data-tier="2">
+            <span class="tier-lbl">Tier 2</span>
+            <input type="text" class="dem-input" placeholder="6 – 10" value="6 – 10" oninput="recalcDemurrage()" style="font-size:12px;padding:7px 10px">
+            <input type="number" class="dem-input" value="150000" min="0" oninput="recalcDemurrage()" style="font-size:12px;padding:7px 10px">
+          </div>
+          <div class="tier-row" data-tier="3">
+            <span class="tier-lbl">Tier 3</span>
+            <input type="text" class="dem-input" placeholder="11 +" value="11+" oninput="recalcDemurrage()" style="font-size:12px;padding:7px 10px">
+            <input type="number" class="dem-input" value="200000" min="0" oninput="recalcDemurrage()" style="font-size:12px;padding:7px 10px">
+          </div>
+        </div>
+        <button class="add-tier-btn" onclick="addTier()">+ Add rate tier</button>
+      </div>
+
+      <!-- Delay scenarios — additive, editable, never presented as fact -->
+      <div class="dem-section">
+        <div class="dem-section-title">Add a Delay Scenario (optional)</div>
+        <div style="font-size:11px;color:var(--text3);font-family:var(--mono);margin-bottom:10px">
+          Typical day ranges — edit them, they are estimates you control, not guarantees.
+        </div>
+        <div class="link-options" style="margin-bottom:8px">
+          <label class="link-opt"><input type="checkbox" id="sc-soncap" onchange="recalcDemurrage()"> Missing SONCAP</label>
+          <label class="link-opt"><input type="checkbox" id="sc-hscode" onchange="recalcDemurrage()"> HS code dispute</label>
+          <label class="link-opt"><input type="checkbox" id="sc-nafdac" onchange="recalcDemurrage()"> NAFDAC hold</label>
+          <label class="link-opt"><input type="checkbox" id="sc-naqs" onchange="recalcDemurrage()"> NAQS query</label>
+        </div>
+        <div class="input-row" id="sc-days-row" style="display:none;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px">
+          <div class="input-group">
+            <label class="ig-label">Extra days — low estimate</label>
+            <input type="number" class="dem-input" id="sc-days-low" value="3" min="0" oninput="recalcDemurrage()">
+          </div>
+          <div class="input-group">
+            <label class="ig-label">Extra days — high estimate</label>
+            <input type="number" class="dem-input" id="sc-days-high" value="7" min="0" oninput="recalcDemurrage()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Storage -->
+      <div class="dem-section">
+        <div class="dem-section-title">Terminal Storage Fees (optional)</div>
+        <div class="input-row">
+          <div class="input-group">
+            <label class="ig-label">Storage free days <span class="ig-hint">days</span></label>
+            <input type="number" class="dem-input" id="dem-storage-free" value="3" min="0" oninput="recalcDemurrage()">
+          </div>
+          <div class="input-group">
+            <label class="ig-label">Storage rate <span class="ig-hint">₦/container/day</span></label>
+            <input type="number" class="dem-input" id="dem-storage-rate" value="50000" min="0" oninput="recalcDemurrage()">
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- RESULTS -->
+    <div class="dem-results">
+      <div class="dem-results-top">
+        <div>
+          <div class="cc-title">Live Cost Exposure</div>
+          <div class="cc-sub" id="dem-results-sub">Fill in your shipment details to calculate</div>
+        </div>
+        <button class="btn-sm btn-sol" onclick="copyDemReport()" id="dem-copy-btn" style="display:none">Copy Report</button>
+        <button class="btn-sm btn-out" onclick="printReport('demurrage')" id="dem-print-btn" style="display:none">🖨 Print / Save PDF</button>
+      </div>
+      <div class="dem-empty" id="dem-empty">
+        <div class="dem-empty-icon">💰</div>
+        <div class="ops-empty-text">Enter your vessel arrival and expected clearance dates to see your demurrage exposure calculated live.</div>
+      </div>
+      <div class="dem-live" id="dem-live">
+        <!-- Total cost hero -->
+        <div class="cost-hero" id="dem-cost-hero"></div>
+        <!-- Risk gauge -->
+        <div class="risk-gauge">
+          <div class="rg-title">Financial Risk Level</div>
+          <div class="rg-bar-track"><div class="rg-marker" id="rg-marker" style="left:5%"></div></div>
+          <div class="rg-labels"><span>Low</span><span>Medium</span><span>High</span><span>Critical</span></div>
+        </div>
+        <!-- Breakdown table -->
+        <div class="rp-title" style="margin-bottom:8px">Daily Cost Breakdown</div>
+        <div style="overflow-x:auto">
+          <table class="breakdown-table bt" id="dem-breakdown-table"></table>
+        </div>
+        <!-- Action tips -->
+        <div class="rp-title" style="margin:1rem 0 8px">Recommended Actions</div>
+        <div class="action-tips" id="dem-action-tips"></div>
+      </div>
+    </div>
+
+  </div>
+</div>

@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClearAI Pro — Document Check, HS Code, Demurrage &amp; more</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,300;1,9..144,400;1,9..144,600&family=Epilogue:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/shell.css">
+<link rel="stylesheet" href="css/components.css">
+</head>
+<body>
+
+<!-- ═══════════════════════════════════
+     APP SHELL — nav, sidebar, API bar
+     stay loaded across every tool page.
+     Only #page-container swaps.
+═══════════════════════════════════ -->
+<!-- ══════════════════════════════════
+     DESKTOP NAV (≥768px)
+     All 5 items in one visible row
+══════════════════════════════════ -->
+<nav>
+  <div class="nav-inner">
+    <a class="nav-brand" href="#">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>
+        </svg>
+      </div>
+      <div>
+        <div class="brand-name">Clear<em>AI</em> Pro</div>
+        <div class="brand-ver">Nigerian Port Intelligence · v2.0</div>
+      </div>
+    </a>
+
+    <div class="nav-items">
+      <button class="nav-item active" onclick="navTo(this,'doc-val')">
+        <div class="ni-row"><span class="ni-icon">📋</span><span class="ni-label">Document Check</span></div>
+        <span class="ni-badge badge-live">LIVE</span>
+      </button>
+      <button class="nav-item" onclick="navTo(this,'hs-class')">
+        <div class="ni-row"><span class="ni-icon">🔖</span><span class="ni-label">HS Code</span></div>
+        <span class="ni-badge badge-live">LIVE</span>
+      </button>
+      <button class="nav-item" onclick="navTo(this,'supplier')">
+        <div class="ni-row"><span class="ni-icon">🔗</span><span class="ni-label">Supplier Portal</span></div>
+        <span class="ni-badge badge-live">LIVE</span>
+      </button>
+      <button class="nav-item" onclick="navTo(this,'demurrage')">
+        <div class="ni-row"><span class="ni-icon">💰</span><span class="ni-label">Demurrage Calc</span></div>
+        <span class="ni-badge badge-live">LIVE</span>
+      </button>
+      <button class="nav-item" onclick="navTo(this,'coming-soon')">
+        <div class="ni-row"><span class="ni-icon">⏳</span><span class="ni-label">Coming Soon</span></div>
+        <span class="ni-badge badge-soon">SOON</span>
+      </button>
+    </div>
+
+    <div class="nav-right">
+      <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Directory & quick actions">☰</button>
+      <button class="back-to-landing" onclick="window.location.href='index.html'">← Home</button>
+      <div class="pulse"></div>
+      <span class="nav-pill">🇳🇬 Lekki DSP</span>
+    </div>
+  </div>
+</nav>
+
+<!-- ══════════════════════════════════
+     MOBILE TOP HEADER (<768px)
+     Brand only — navigation is at the bottom
+══════════════════════════════════ -->
+<header class="mobile-header">
+  <a class="mobile-brand" href="#">
+    <div class="mobile-brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>
+      </svg>
+    </div>
+    <span class="mobile-brand-text">Clear<em>AI</em> Pro</span>
+  </a>
+  <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Directory & quick actions">☰</button>
+  <button class="back-to-landing" style="font-size:11px;padding:5px 10px" onclick="window.location.href='index.html'">← Home</button>
+</header>
+
+<!-- ══════════════════════════════════
+     MOBILE BOTTOM TAB BAR (<768px)
+     All 5 tabs — always fully visible
+     Fixed to bottom like WhatsApp / Google Maps
+══════════════════════════════════ -->
+<nav class="bottom-tab-bar" id="bottom-tab-bar">
+
+  <button class="btab active" id="btab-doc-val" onclick="navTo(this,'doc-val')">
+    <div class="btab-icon-wrap"><div class="btab-icon">📋<span class="btab-dot"></span></div></div>
+    <span class="btab-label">Documents</span>
+  </button>
+
+  <button class="btab" id="btab-hs-class" onclick="navTo(this,'hs-class')">
+    <div class="btab-icon-wrap"><div class="btab-icon">🔖<span class="btab-dot"></span></div></div>
+    <span class="btab-label">HS Code</span>
+  </button>
+
+  <button class="btab" id="btab-supplier" onclick="navTo(this,'supplier')">
+    <div class="btab-icon-wrap"><div class="btab-icon">🔗<span class="btab-dot"></span></div></div>
+    <span class="btab-label">Supplier</span>
+  </button>
+
+  <button class="btab" id="btab-demurrage" onclick="navTo(this,'demurrage')">
+    <div class="btab-icon-wrap"><div class="btab-icon">💰<span class="btab-dot"></span></div></div>
+    <span class="btab-label">Demurrage</span>
+  </button>
+
+  <button class="btab" id="btab-coming-soon" onclick="navTo(this,'coming-soon')">
+    <div class="btab-icon-wrap"><div class="btab-icon">⏳<span class="btab-dot"></span></div></div>
+    <span class="btab-label">Soon</span>
+  </button>
+
+</nav>
+
+<!-- ══════════════════════════════════
+     SIDEBAR — directory & quick actions
+     Only honest, no-backend content: static
+     agency numbers, navigation shortcuts,
+     and a per-device "recently used" list.
+     No "live" feed — there's no real data
+     source for one yet.
+══════════════════════════════════ -->
+<div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebarOutside(event)">
+  <aside class="sidebar-panel" id="sidebar-panel">
+    <div class="sb-header">
+      <span class="sb-title">Directory &amp; Shortcuts</span>
+      <button class="sb-close" onclick="toggleSidebar()">✕</button>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-section-label">Quick actions</div>
+      <button class="sb-action" onclick="sidebarNav('doc-val')">📋 New document check</button>
+      <button class="sb-action" onclick="sidebarNav('supplier')">🔗 Generate supplier link</button>
+      <button class="sb-action" onclick="sidebarNav('demurrage')">💰 Estimate demurrage</button>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-section-label">Recently checked (this device)</div>
+      <div id="recent-list"><div class="sb-empty">Nothing checked yet on this device</div></div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-section-label">Agency directory</div>
+      <div class="sb-agency-item"><b>NCS Lekki Command</b><span>Customs clearance &amp; duty</span></div>
+      <div class="sb-agency-item"><b>NAQS</b><span>Phytosanitary / agricultural checks</span></div>
+      <div class="sb-agency-item"><b>SON (SONCAP)</b><span>Standards conformity certificates</span></div>
+      <div class="sb-agency-item"><b>NAFDAC</b><span>Food, drug, chemical permits</span></div>
+      <div class="sb-note">Contact numbers verified periodically — always confirm against the agency's own published channel before relying on one here.</div>
+    </div>
+
+    <div class="sb-section">
+      <div class="sb-section-label">Context</div>
+      <div class="sb-note">National Single Window launched March 2026 with widespread early-stage complaints. This context is dated, not live — check official NCS channels for the current status.</div>
+    </div>
+  </aside>
+</div>
+
+<!-- API BAR -->
+<div class="api-bar">
+  <div class="api-bar-inner">
+    <span class="api-label">CLAUDE API KEY</span>
+    <input type="password" class="api-input" id="api-key" placeholder="sk-ant-api03-..." autocomplete="off">
+    <button class="api-btn" onclick="saveKey()">Connect</button>
+    <span class="api-status" id="api-status">Required for all AI features · <a href="https://console.anthropic.com" target="_blank" style="color:var(--green2)">Get free key →</a></span>
+  </div>
+</div>
+
+
+<!-- ═══════════════════════════════════
+     PAGE CONTAINER — the shell router
+     (js/shell.js) fetches one tool page's
+     HTML fragment at a time into here.
+═══════════════════════════════════ -->
+<main id="page-container">
+  <div class="page-wrap">
+    <p style="color:var(--text3);text-align:center;padding:4rem 0">Loading…</p>
+  </div>
+</main>
+
+<!-- ═══════════════════════════════════
+     SHARED APP FOOTER — one copy, not
+     duplicated across the 7 tool pages
+═══════════════════════════════════ -->
+<footer class="app-footer">
+  <strong>ClearAI Pro</strong> · Nigerian Port Intelligence · Lekki Deep Sea Port<br>
+  AI-assisted checks are not a legal or regulatory certification — always confirm against official NCS / NPA / NSW records.
+</footer>
+
+<!-- TOAST — HTML container was missing from the original single-file app
+     (showToast() referenced #toast/#t-t/#t-m but no such elements existed
+     anywhere in clearAi.html, so every toast call silently errored out).
+     Added here so notifications actually work; markup matches the .toast
+     CSS rules that did already exist (.toast b for the bold title). -->
+<div class="toast" id="toast">
+  <b id="t-t"></b>
+  <span id="t-m"></span>
+</div>
+
+<script src="js/shell.js"></script>
+</body>
+</html>
