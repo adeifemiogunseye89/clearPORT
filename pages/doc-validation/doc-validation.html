@@ -1,0 +1,146 @@
+<div class="page-wrap">
+
+  <div class="page-header">
+    <div class="page-eyebrow"><span class="dot"></span> NCS · NPA · Regulatory · NSW Pre-Check</div>
+    <h1 class="page-title">Document <strong>Validation</strong> &amp;<br><em>Verification</em></h1>
+    <p class="page-sub">Validate all 12 Nigerian port clearance documents against NCS, NPA and regulatory requirements before NSW submission. Catch every error before it costs you demurrage.</p>
+  </div>
+
+  <div class="link-options" style="margin-bottom:1.4rem">
+    <span class="link-opt" style="background:var(--gdim);border-color:rgba(58,125,95,0.3);color:var(--green2);font-weight:600;cursor:default">✓ Single Document</span>
+    <span class="link-opt" onclick="navTo(document.querySelector('.nav-item[onclick*=\'pre-check\']')||document.getElementById('btab-doc-val'),'pre-check')" style="cursor:pointer">Compare Form M to Supplier Docs →</span>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat"><div class="stat-n">12</div><div class="stat-l">Doc types</div></div>
+    <div class="stat"><div class="stat-n">3</div><div class="stat-l">Agency layers</div></div>
+    <div class="stat"><div class="stat-n">&lt;60s</div><div class="stat-l">AI check time</div></div>
+    <div class="stat"><div class="stat-n">9,800</div><div class="stat-l">NSW complaints</div></div>
+  </div>
+
+  <!-- DOC SELECTOR -->
+  <div class="doc-group">
+    <div class="doc-layer-label dll-ncs">📋 NCS — Customs Layer</div>
+    <div class="doc-grid">
+      <div class="doc-card active" data-type="form-m" onclick="selDoc(this,'form-m')">
+        <span class="dc-layer dcl-ncs">NCS</span>
+        <div class="dc-icon">📋</div><div class="dc-name">Form M</div><div class="dc-abbr">Import Declaration</div>
+      </div>
+      <div class="doc-card" data-type="paar" onclick="selDoc(this,'paar')">
+        <span class="dc-layer dcl-ncs">NCS</span>
+        <div class="dc-icon">📊</div><div class="dc-name">PAAR</div><div class="dc-abbr">Pre-Arrival Assessment</div>
+      </div>
+      <div class="doc-card" data-type="sgd" onclick="selDoc(this,'sgd')">
+        <span class="dc-layer dcl-ncs">NCS</span>
+        <div class="dc-icon">📄</div><div class="dc-name">SGD</div><div class="dc-abbr">Single Goods Declaration</div>
+      </div>
+      <div class="doc-card" data-type="bol" onclick="selDoc(this,'bol')">
+        <span class="dc-layer dcl-ncs">NCS</span>
+        <div class="dc-icon">🚢</div><div class="dc-name">Bill of Lading</div><div class="dc-abbr">/ Air Waybill</div>
+      </div>
+      <div class="doc-card" data-type="invoice" onclick="selDoc(this,'invoice')">
+        <span class="dc-layer dcl-ncs">NCS</span>
+        <div class="dc-icon">🧾</div><div class="dc-name">Comm. Invoice</div><div class="dc-abbr">&amp; Packing List</div>
+      </div>
+      <div class="doc-card" data-type="ccvo" onclick="selDoc(this,'ccvo')">
+        <span class="dc-layer dcl-ncs">NCS</span>
+        <div class="dc-icon">🌍</div><div class="dc-name">CCVO</div><div class="dc-abbr">Value &amp; Origin Cert</div>
+      </div>
+      <div class="doc-card" data-type="insurance" onclick="selDoc(this,'insurance')">
+        <span class="dc-layer dcl-ncs">NCS</span>
+        <div class="dc-icon">🛡️</div><div class="dc-name">Insurance Cert</div><div class="dc-abbr">Marine Cargo</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-group">
+    <div class="doc-layer-label dll-reg">⚠️ Regulatory Layer</div>
+    <div class="doc-grid">
+      <div class="doc-card" data-type="soncap" onclick="selDoc(this,'soncap')">
+        <span class="dc-layer dcl-reg">SON</span>
+        <div class="dc-icon">✅</div><div class="dc-name">SONCAP</div><div class="dc-abbr">Standards Certificate</div>
+      </div>
+      <div class="doc-card" data-type="nafdac" onclick="selDoc(this,'nafdac')">
+        <span class="dc-layer dcl-reg">NAFDAC</span>
+        <div class="dc-icon">💊</div><div class="dc-name">NAFDAC Permit</div><div class="dc-abbr">Food / Drug / Chemical</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="doc-group">
+    <div class="doc-layer-label dll-npa">🚪 NPA — Port Layer</div>
+    <div class="doc-grid">
+      <div class="doc-card" data-type="release" onclick="selDoc(this,'release')">
+        <span class="dc-layer dcl-npa">NPA</span>
+        <div class="dc-icon">🔓</div><div class="dc-name">Release Note</div><div class="dc-abbr">Customs Exit Note</div>
+      </div>
+      <div class="doc-card" data-type="delivery" onclick="selDoc(this,'delivery')">
+        <span class="dc-layer dcl-npa">NPA</span>
+        <div class="dc-icon">📦</div><div class="dc-name">Delivery Order</div><div class="dc-abbr">Cargo Release</div>
+      </div>
+      <div class="doc-card" data-type="gatepass" onclick="selDoc(this,'gatepass')">
+        <span class="dc-layer dcl-npa">NPA</span>
+        <div class="dc-icon">🚪</div><div class="dc-name">Gate Pass</div><div class="dc-abbr">Tally Sheet / Exit</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHECKER -->
+  <div class="checker-card">
+    <div class="cc-header">
+      <div>
+        <div class="cc-title" id="cc-title">Form M — Import Declaration</div>
+        <div class="cc-sub" id="cc-sub">Mandatory NCS document · Initiated through Authorised Dealer Bank before shipment</div>
+      </div>
+      <div class="nsw-chip">⚡ NSW Pre-Check</div>
+    </div>
+    <div class="cc-input">
+      <div class="cc-label">Paste document text</div>
+      <textarea id="doc-text" placeholder="Paste the full text of your customs document here..."></textarea>
+      <div class="sample-row">
+        <span class="sl">Load sample →</span>
+        <button class="sp" onclick="loadSamp('fm-ok')">✓ Clean Form M</button>
+        <button class="sp" onclick="loadSamp('fm-err')">⚠ Form M errors</button>
+        <button class="sp" onclick="loadSamp('bol')">Bill of Lading</button>
+        <button class="sp" onclick="loadSamp('invoice')">Commercial Invoice</button>
+        <button class="sp" onclick="loadSamp('gatepass')">Gate Pass</button>
+      </div>
+    </div>
+    <div class="cc-action">
+      <span class="cc-info" id="cc-chars">0 chars</span>
+      <button class="go-btn" id="val-btn" onclick="runValidation()" disabled>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+        Validate Document
+      </button>
+    </div>
+    <div class="cc-loading" id="cc-loading">
+      <div class="spin-ring"></div>
+      <div class="load-txt">AI validating against Nigerian customs requirements...</div>
+      <div class="load-steps">
+        <div class="ls" id="ls1">→ Parsing document structure</div>
+        <div class="ls" id="ls2">→ Extracting key fields</div>
+        <div class="ls" id="ls3">→ Cross-checking values and HS codes</div>
+        <div class="ls" id="ls4">→ Validating NCS / NPA requirements</div>
+        <div class="ls" id="ls5">→ Checking NSW submission readiness</div>
+        <div class="ls" id="ls6">→ Writing plain-English verdict</div>
+      </div>
+    </div>
+    <div class="cc-results" id="cc-results">
+      <div class="verd-bar" id="verd-bar"></div>
+      <div class="panels-2">
+        <div class="rpanel"><div class="rp-title">Extracted Fields</div><div id="fields-out"></div></div>
+        <div class="rpanel"><div class="rp-title">Validation Checks</div><div id="checks-out"></div></div>
+      </div>
+      <div class="issues-wrap" id="issues-out"></div>
+      <div class="nsw-wrap" id="nsw-out"></div>
+      <div class="summ-wrap"><div class="rp-title">AI Plain-English Summary</div><div class="summ-text" id="summ-out"></div></div>
+      <div class="res-foot">
+        <button class="btn-sm btn-out" onclick="resetVal()">← New check</button>
+        <button class="btn-sm btn-sol" onclick="copyValReport()">Copy report</button>
+        <button class="btn-sm btn-out" onclick="printReport('doc-val')">🖨 Print / Save PDF</button>
+        <div class="pw">Powered by <span>Claude AI</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>

@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Advance Ruling — verdict chip preview</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&family=Epilogue:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/components.css">
+<link rel="stylesheet" href="pages/advance-ruling/advance-ruling.css">
+<style>
+  body{ background:var(--bg); padding:3rem 1.5rem; max-width:760px; margin:0 auto; }
+  .preview-label{ font-family:var(--mono); font-size:10.5px; letter-spacing:.07em; text-transform:uppercase; color:var(--text3); margin:2rem 0 8px; }
+  .preview-label:first-child{ margin-top:0; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <div class="page-eyebrow"><span class="dot"></span> Preview only — not a real page</div>
+  <h1 class="page-title">Advance Ruling <strong>verdict chip</strong></h1>
+  <p class="page-sub">The three states runRulingCheck() can render, using the real app CSS files (tokens.css + components.css + advance-ruling.css) — this is exactly what app.html will show, not a mockup.</p>
+</div>
+
+<div class="checker-card">
+  <div class="cc-header"><span class="cc-title">Consistency check result</span></div>
+  <div id="ar-result" style="padding:1.3rem 1.5rem">
+
+    <p class="preview-label">consistency: PLAUSIBLE</p>
+    <div class="verdict-chip v-clear" style="margin-bottom:10px"><span class="v-dot"></span>✓ PLAUSIBLE</div>
+    <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:10px">The declared HS code 8528.72.00 is a standard, well-established classification for LED smart televisions and is consistent with published NCS rulings for this product category.</p>
+
+    <p class="preview-label">consistency: QUESTIONABLE</p>
+    <div class="verdict-chip v-warning" style="margin-bottom:10px"><span class="v-dot"></span>⚠ QUESTIONABLE</div>
+    <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:10px">This code is plausible but the product description leaves room for an alternate heading — worth confirming before you commit to it on the Form M.</p>
+
+    <p class="preview-label">consistency: LIKELY_MISMATCH</p>
+    <div class="verdict-chip v-error" style="margin-bottom:10px"><span class="v-dot"></span>✗ LIKELY MISMATCH</div>
+    <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:0">The description you gave points to a different chapter entirely — double-check this code against the product before submission.</p>
+
+    <div style="margin-top:12px;padding:9px 12px;background:var(--adim);border:1px solid rgba(192,122,42,0.2);border-radius:7px;font-size:11px;color:var(--amber);font-family:var(--mono)">⚠ AI-assisted plausibility check only — always confirm on the official NCS Advance Ruling portal.</div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,202 @@
+/* ══════════════════════════════════════
+   SHARED COMPONENTS
+   Used by more than one tool page — page
+   header, stats pills, the checker-card
+   shell, form inputs, buttons, loading
+   spinner, cross-links, and the generic
+   result-footer/summary blocks.
+   Page-specific result rendering (e.g. the
+   document-validation verdict panel) lives
+   in that page's own CSS file instead.
+══════════════════════════════════════ */
+
+/* ── PAGE CONTAINER ── */
+.page-wrap { max-width: 1100px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem; position: relative; z-index: 1; }
+@keyframes fadeUp { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+
+/* ── PAGE HEADERS (acts as each tool page's "hero") ── */
+.page-header { margin-bottom: 2rem; }
+.page-eyebrow {
+  font-size: 10.5px; font-family: var(--mono); letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--green2);
+  display: inline-flex; align-items: center; gap: 6px; margin-bottom: 12px;
+}
+.page-eyebrow .dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); animation: pulse 2.5s ease-in-out infinite; }
+.page-title {
+  font-family: var(--display); font-size: clamp(1.9rem, 4vw, 2.9rem);
+  font-weight: 300; line-height: 1.1; letter-spacing: -0.02em; color: var(--text);
+  margin-bottom: 12px;
+}
+.page-title strong { font-weight: 700; }
+.page-title em { font-style: italic; color: var(--green); }
+.page-sub { font-size: 14px; color: var(--text2); line-height: 1.75; max-width: 600px; }
+
+/* ── CROSS-LINKS BETWEEN TOOL PAGES ── */
+.link-options { display: flex; gap: 8px; flex-wrap: wrap; }
+.link-opt {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; color: var(--text2); cursor: pointer;
+  padding: 6px 12px; border-radius: 6px;
+  border: 1px solid var(--border2); background: var(--bg3);
+  transition: all 0.15s; user-select: none;
+}
+.link-opt input[type=checkbox] { accent-color: var(--green); }
+.link-opt:hover { border-color: var(--green); color: var(--text); }
+
+/* ── APP FOOTER (shared shell — appears once, not duplicated per tool page) ── */
+.app-footer {
+  border-top: 1px solid var(--border);
+  padding: 1.6rem 1.5rem 2.2rem;
+  text-align: center;
+  font-size: 11px;
+  color: var(--text3);
+  font-family: var(--mono);
+}
+.app-footer strong { color: var(--text2); font-family: var(--body); }
+
+/* ── STATS ROW ── */
+.stats-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 2rem; }
+.stat {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--rr); padding: 12px 18px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow var(--t-med), transform var(--t-med);
+}
+.stat:hover { box-shadow: var(--shadow-md); transform: translateY(-2px); }
+.stat-n { font-family: var(--display); font-size: 1.5rem; font-weight: 700; color: var(--green); }
+.stat-l { font-size: 10px; color: var(--text3); font-family: var(--mono); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.04em; }
+
+/* ── CHECKER CARD (shared shell for every tool's input area) ── */
+.checker-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--rl); overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  transition: box-shadow var(--t-slow);
+}
+.cc-header {
+  background: var(--bg3); border-bottom: 1px solid var(--border);
+  padding: 1.1rem 1.5rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+}
+.cc-title { font-family: var(--display); font-size: 1.05rem; font-weight: 500; color: var(--text); }
+.cc-sub { font-size: 11px; color: var(--text3); font-family: var(--mono); margin-top: 2px; }
+.nsw-chip {
+  font-size: 10px; padding: 5px 11px; border-radius: 20px;
+  font-family: var(--mono); color: var(--amber);
+  background: rgba(192,122,42,0.08); border: 1px solid rgba(192,122,42,0.2);
+  box-shadow: var(--shadow-xs);
+}
+.cc-input { padding: 1.2rem 1.5rem; border-bottom: 1px solid var(--border); }
+.cc-label { font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 8px; }
+
+textarea, input[type="text"], input[type="password"] {
+  width: 100%; font-family: var(--mono); font-size: 12.5px;
+  padding: 11px 14px; border-radius: 8px;
+  border: 1px solid var(--border2);
+  background: var(--bg); color: var(--text); outline: none;
+  box-shadow: var(--shadow-xs), inset 0 1px 3px rgba(80,60,30,0.04);
+  transition: border-color var(--t-med), box-shadow var(--t-med), background var(--t-med);
+}
+textarea { resize: vertical; min-height: 185px; line-height: 1.7; }
+textarea:focus, input:focus {
+  border-color: var(--green);
+  background: var(--bg2);
+  box-shadow: 0 0 0 3px rgba(58,125,95,0.1), var(--shadow-sm);
+}
+textarea::placeholder, input::placeholder { color: var(--text3); }
+
+/* Simpler form fields (used by HS Classifier + Advance Ruling) */
+.hs-body { padding: 1.3rem 1.5rem; }
+.form-label { font-size: 10px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 7px; font-weight: 600; }
+.form-input { width: 100%; font-family: var(--body); font-size: 13px; padding: 10px 13px; border-radius: 8px; border: 1px solid var(--border2); background: var(--bg); color: var(--text); outline: none; box-shadow: var(--shadow-xs), inset 0 1px 3px rgba(80,60,30,0.04); transition: border-color var(--t-med), box-shadow var(--t-med); margin-bottom: 13px; }
+.form-input:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(58,125,95,0.1), var(--shadow-sm); }
+.form-textarea { width: 100%; font-family: var(--body); font-size: 13px; padding: 10px 13px; border-radius: 8px; resize: vertical; min-height: 100px; border: 1px solid var(--border2); background: var(--bg); color: var(--text); outline: none; line-height: 1.65; box-shadow: var(--shadow-xs), inset 0 1px 3px rgba(80,60,30,0.04); transition: border-color var(--t-med), box-shadow var(--t-med); margin-bottom: 13px; }
+.form-textarea:focus { border-color: var(--green); box-shadow: 0 0 0 3px rgba(58,125,95,0.1), var(--shadow-sm); }
+
+.sample-row { display: flex; gap: 7px; margin-top: 10px; flex-wrap: wrap; align-items: center; }
+.sl { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+.sp, .hs-ex {
+  font-size: 11px; padding: 4px 11px; border: 1px dashed var(--border2);
+  border-radius: 20px; background: transparent; cursor: pointer;
+  color: var(--text3); font-family: var(--body); font-weight: 500;
+  transition: all var(--t-med); box-shadow: none;
+}
+.sp:hover, .hs-ex:hover { border-color: var(--green); color: var(--green2); background: rgba(58,125,95,0.06); border-style: solid; }
+.hs-examples { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 13px; }
+.cc-action {
+  padding: 10px 1.5rem; background: var(--bg3);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+}
+.cc-info { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+/* ── PRIMARY BUTTON ── */
+.go-btn {
+  font-family: var(--body); font-size: 13.5px; font-weight: 700;
+  padding: 11px 28px; border-radius: 9px; border: none; cursor: pointer;
+  background: var(--green); color: var(--text-inv);
+  display: flex; align-items: center; gap: 8px;
+  box-shadow: 0 3px 12px rgba(58,125,95,0.28), 0 1px 4px rgba(58,125,95,0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+  transition: background var(--t-med), box-shadow var(--t-med), transform var(--t-fast);
+}
+.go-btn:hover:not(:disabled) {
+  background: var(--green2);
+  box-shadow: 0 6px 20px rgba(58,125,95,0.35), 0 2px 6px rgba(58,125,95,0.2), inset 0 1px 0 rgba(255,255,255,0.15);
+  transform: translateY(-2px);
+}
+.go-btn:active:not(:disabled) { transform: translateY(0); box-shadow: 0 2px 8px rgba(58,125,95,0.2); }
+.go-btn:disabled { opacity: 0.45; cursor: not-allowed; box-shadow: var(--shadow-xs); transform: none; }
+
+/* ── SMALL BUTTONS ── */
+.btn-sm {
+  font-family: var(--body); font-size: 12px; font-weight: 600;
+  padding: 7px 15px; border-radius: 7px; border: none; cursor: pointer;
+  transition: all var(--t-med);
+}
+.btn-out {
+  background: var(--bg3); color: var(--text2);
+  border: 1px solid var(--border2);
+  box-shadow: var(--shadow-xs);
+}
+.btn-out:hover { border-color: var(--green); color: var(--green2); background: rgba(58,125,95,0.06); box-shadow: var(--shadow-sm); transform: translateY(-1px); }
+.btn-sol {
+  background: var(--green); color: var(--text-inv); font-weight: 700;
+  box-shadow: 0 2px 10px rgba(58,125,95,0.25), inset 0 1px 0 rgba(255,255,255,0.15);
+}
+.btn-sol:hover { background: var(--green2); box-shadow: 0 4px 14px rgba(58,125,95,0.3); transform: translateY(-1px); }
+.btn-sol:active { transform: translateY(0); }
+.pw { font-size: 10px; color: var(--text3); margin-left: auto; font-family: var(--mono); }
+.pw span { color: var(--green2); font-weight: 600; }
+
+/* ── LOADING ── */
+.cc-loading { display: none; padding: 2.5rem 1.5rem; text-align: center; }
+.cc-loading.on { display: block; }
+.spin-ring {
+  width: 40px; height: 40px; border: 2.5px solid var(--border2);
+  border-top-color: var(--green); border-radius: 50%;
+  animation: spin 0.8s linear infinite; margin: 0 auto 1.2rem;
+  box-shadow: 0 0 12px rgba(58,125,95,0.15);
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.load-txt { font-size: 13px; color: var(--text2); margin-bottom: 1rem; }
+.load-steps { display: flex; flex-direction: column; gap: 4px; }
+.ls { font-size: 11px; color: var(--text3); font-family: var(--mono); opacity: 0; transition: opacity var(--t-slow); }
+.ls.on { opacity: 1; color: var(--green2); }
+
+/* ── GENERIC RESULT FOOTER / SUMMARY (reused by several pages' results) ── */
+.rp-title { font-size: 9.5px; letter-spacing: 0.07em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 10px; font-weight: 600; }
+.summ-wrap { padding: 1.3rem 1.5rem; }
+.summ-text { font-size: 13.5px; color: var(--text2); line-height: 1.85; white-space: pre-wrap; }
+.res-foot {
+  padding: 11px 1.5rem; background: var(--bg3);
+  border-top: 1px solid var(--border);
+  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+}
+
+/* .ops-empty-text originally belonged to the removed Ops Report page,
+   but the Demurrage Calculator's empty state reuses the same class —
+   kept here (shared), not moved to legacy/ */
+.ops-empty-text { font-size: 12.5px; color: var(--text2); line-height: 1.7; max-width: 320px; margin: 0 auto; }
+
+/* ── SHARED ANIMATIONS ── */
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(.75)} }

@@ -1,0 +1,117 @@
+<div class="page-wrap">
+
+  <div class="page-header">
+    <div class="page-eyebrow"><span class="dot"></span> Phased Document Reconciliation · Form M as Baseline</div>
+    <h1 class="page-title">Pre-Shipment <em>Reconciliation</em><br><strong>Form M ↔ Invoice / Packing List</strong></h1>
+    <p class="page-sub">Nigerian clearance documents don't all arrive at once — Form M exists before you place the order, the Invoice and Packing List come from your supplier once goods are ready. ClearAI checks each stage against the one before it, starting with your Form M as the baseline of truth.</p>
+  </div>
+
+  <div class="link-options" style="margin-bottom:1.4rem">
+    <span class="link-opt" onclick="navTo(document.querySelector('.nav-item[onclick*=\'doc-val\']')||document.getElementById('btab-doc-val'),'doc-val')" style="cursor:pointer">← Single Document</span>
+    <span class="link-opt" style="background:var(--gdim);border-color:rgba(58,125,95,0.3);color:var(--green2);font-weight:600;cursor:default">✓ Compare Form M to Supplier Docs</span>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat"><div class="stat-n">2 stages</div><div class="stat-l">Form M → Invoice/PL</div></div>
+    <div class="stat"><div class="stat-n">Free</div><div class="stat-l">To fix before B/L is issued</div></div>
+    <div class="stat"><div class="stat-n">₦0</div><div class="stat-l">Cost of catching it here</div></div>
+  </div>
+
+  <div class="psc-intro">
+    <div class="psc-intro-icon">📋</div>
+    <div class="psc-intro-text">
+      <h3>Why Form M comes first — and why the Bill of Lading isn't in this check</h3>
+      <p>Your Form M is filed with your bank before the order is even placed — it's the anchor. The Invoice and Packing List come later, from your supplier, once goods are ready to ship. ClearAI checks whether what the supplier actually invoiced matches what you originally declared. The Bill of Lading is issued afterward by the shipping line, not the supplier — it carries a general cargo description and gross weight only, not a matching HS code, so it's reconciled separately once the carrier drafts it (see the Supplier Portal for that stage).</p>
+    </div>
+  </div>
+
+  <!-- STAGE 1: FORM M -->
+  <div class="checker-card" style="margin-bottom:14px">
+    <div class="cc-header">
+      <div>
+        <div class="cc-title">Stage 1 — Your Form M (the baseline)</div>
+        <div class="cc-sub">Paste the Form M you filed with your bank. This is what everything else gets checked against.</div>
+      </div>
+      <span class="nsw-chip" id="stage1-badge" style="color:var(--text3);border-color:var(--border2);background:var(--bg3)">Not loaded</span>
+    </div>
+    <div class="cc-input" style="border-bottom:none">
+      <textarea id="pr-formm" placeholder="Paste your Form M text here — Applicant, HS Code, Description of Goods, Value, Supplier name..." oninput="onReconInput()" style="min-height:130px"></textarea>
+      <div class="sample-row">
+        <span class="sl">Load sample →</span>
+        <button class="sp" onclick="loadReconSample('formm')">📋 Sample Form M</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAGE 2: INVOICE + PACKING LIST -->
+  <div class="checker-card" style="margin-bottom:14px">
+    <div class="cc-header">
+      <div>
+        <div class="cc-title">Stage 2 — Supplier's Invoice &amp; Packing List</div>
+        <div class="cc-sub">Paste what your supplier sent. ClearAI checks it against your Stage 1 Form M above.</div>
+      </div>
+      <span class="nsw-chip" id="stage2-badge" style="color:var(--text3);border-color:var(--border2);background:var(--bg3)">Not loaded</span>
+    </div>
+    <div class="cc-input" style="border-bottom:none">
+      <div class="input-row" style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div>
+          <div class="cc-label">Commercial Invoice</div>
+          <textarea id="pr-invoice" placeholder="Paste Commercial Invoice text — unit price, total value, Incoterms, HS code, description..." oninput="onReconInput()" style="min-height:120px"></textarea>
+        </div>
+        <div>
+          <div class="cc-label">Packing List</div>
+          <textarea id="pr-packing" placeholder="Paste Packing List text — quantities, net/gross weight, packages, dimensions..." oninput="onReconInput()" style="min-height:120px"></textarea>
+        </div>
+      </div>
+      <div class="sample-row">
+        <span class="sl">Load sample →</span>
+        <button class="sp" onclick="loadReconSample('invoice')">🧾 Sample Invoice + Packing List</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="psc-action-bar">
+    <div class="psc-status" id="pr-status">Load Stage 1 and Stage 2 to run reconciliation</div>
+    <button class="go-btn" id="pr-btn" onclick="runReconciliation()" disabled style="padding:11px 24px">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/></svg>
+      Reconcile Documents
+    </button>
+  </div>
+
+  <!-- LOADING -->
+  <div class="cc-loading" id="pr-loading">
+    <div class="spin-ring"></div>
+    <div class="load-txt">Reconciling Form M against Invoice / Packing List...</div>
+    <div class="load-steps">
+      <div class="ls" id="prls1">→ Extracting Form M baseline fields</div>
+      <div class="ls" id="prls2">→ Extracting Invoice and Packing List fields</div>
+      <div class="ls" id="prls3">→ Comparing value, quantity, HS code and description</div>
+      <div class="ls" id="prls4">→ Checking weight consistency (net vs gross)</div>
+      <div class="ls" id="prls5">→ Writing reconciliation report</div>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div class="psc-results" id="pr-results">
+    <div id="pr-verdict-box"></div>
+    <div class="mismatch-grid" id="pr-mismatches"></div>
+    <div class="checker-card">
+      <div class="cc-header">
+        <div>
+          <div class="cc-title">Field-by-Field Comparison</div>
+          <div class="cc-sub">Form M baseline vs what the supplier actually sent</div>
+        </div>
+        <button class="btn-sm btn-sol" onclick="copyReconReport()">Copy Report</button>
+        <button class="btn-sm btn-out" onclick="printReport('pre-check')">🖨 Print / Save PDF</button>
+      </div>
+      <div style="overflow-x:auto;padding:1.2rem 1.5rem">
+        <table class="field-comparison-table fct" id="pr-compare-table"></table>
+      </div>
+      <div class="res-foot" style="border-top:1px solid var(--border)">
+        <div class="summ-text" id="pr-summary" style="font-size:13px;color:var(--text2);line-height:1.8"></div>
+        <div class="pw" style="margin-left:auto">Powered by <span>Claude AI</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
