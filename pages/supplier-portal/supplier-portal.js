@@ -6,34 +6,97 @@
 // and pages/pre-shipment-check/pre-shipment-check.js (RECON_SAMPLES,
 // RECON_PROMPT, renderReconResults, onReconInput) — this "preview"
 // button intentionally reuses the reconciliation feature's logic.
+//
+// STAGE 4: "Generate Link" now performs a real insert into the
+// `submissions` table (built in Stage 1) instead of building a fake
+// slug locally. It writes directly via Supabase's REST API — no
+// Edge Function needed for this step, since Stage 1's RLS policy
+// already permits exactly this one action ("anyone can create a
+// submission") and nothing more. The token itself is generated in
+// the browser with crypto.randomUUID() before the insert, so we
+// never need the row echoed back — see STAGE_2_GUIDE.md's key-header
+// rule (apikey only, never Authorization) for why the fetch below is
+// built the way it is.
 // ══════════════════════════════════════
 
+const SUPABASE_URL = 'https://dvvadwrympflvqwoxtzh.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_PPV34_JovUy7VtLCnnTFjg_BA53APb3';
+
 function initSupplierPortal() {
-  updateSupplierLink();
+  checkLinkFormReady();
   window.CurrentPage = { onKeyChange: function(){} };
 }
 
-function updateSupplierLink() {
+// Cheap, client-side only — just enables/disables the Generate Link
+// button as the required fields fill in. No network call happens
+// until the button is actually clicked.
+function checkLinkFormReady() {
+  const agent = document.getElementById('scp-agent').value.trim();
+  const ref = document.getElementById('scp-ref').value.trim();
+  document.getElementById('scp-generate-btn').disabled = !agent || !ref;
+}
+
+async function generateSupplierLink() {
   const agent = document.getElementById('scp-agent').value.trim();
   const supplier = document.getElementById('scp-supplier').value.trim();
   const ref = document.getElementById('scp-ref').value.trim();
   const port = document.getElementById('scp-port').value;
   const display = document.getElementById('scp-link-display');
-  const btn = document.getElementById('scp-copy-btn');
+  const genBtn = document.getElementById('scp-generate-btn');
+  const copyBtn = document.getElementById('scp-copy-btn');
 
-  if (!agent || !ref) {
-    display.textContent = 'Fill in your company name and reference number above';
+  if (!agent || !ref) return; // button should already be disabled, this is just a safety net
+
+  genBtn.disabled = true;
+  genBtn.textContent = 'Generating...';
+  copyBtn.disabled = true;
+
+  const token = crypto.randomUUID();
+
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/submissions`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY, // apikey ONLY — see STAGE_2_GUIDE.md
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal', // we already have the token; no need for
+                                     // PostgREST to SELECT the row back, which
+                                     // would need a SELECT policy we don't have
+      },
+      body: JSON.stringify({
+        token,
+        agent_name: agent,
+        supplier_name: supplier || null,
+        ref,
+        port: port || null,
+      }),
+    });
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(errText || `Request failed (${res.status})`);
+    }
+
+    // Build the real link relative to wherever this page is actually being
+    // served from — works unchanged whether that's Live Server locally or
+    // the real domain once deployed, since supplierlink.html always sits
+    // right next to app.html.
+    const link = new URL(`supplierlink.html?token=${token}`, window.location.href).href;
+
+    display.textContent = link;
+    display.classList.add('active');
+    copyBtn.disabled = false;
+    window._supplierLink = link;
+    window._supplierMeta = { agent, supplier, ref, port };
+    showToast('Link generated ✓', 'Ready to share with your supplier', true);
+  } catch (err) {
+    showToast('Could not generate link', err.message.substring(0, 120), false);
+    display.textContent = 'Something went wrong — try again';
     display.classList.remove('active');
-    btn.disabled = true;
-    return;
+  } finally {
+    genBtn.disabled = false;
+    genBtn.textContent = 'Generate Link';
   }
-  const slug = (agent + '-' + ref).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'');
-  const link = `https://clearai.pro/check/${slug}`;
-  display.textContent = link;
-  display.classList.add('active');
-  btn.disabled = false;
-  window._supplierLink = link;
-  window._supplierMeta = { agent, supplier, ref, port };
 }
 
 function copySupplierLink() {
