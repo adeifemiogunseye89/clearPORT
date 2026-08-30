@@ -13,9 +13,21 @@ const SUPABASE_URL = 'https://dvvadwrympflvqwoxtzh.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_PPV34_JovUy7VtLCnnTFjg_BA53APb3';
 const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/supplier-submission`;
 
+// Supabase doesn't publish a confirmed Edge Function request-body size
+// limit (checked their docs directly — genuinely not listed). This is
+// a conservative best-guess ceiling, not a confirmed hard limit — it
+// exists to warn early, not to block real testing. Once real usage
+// tells us the actual breaking point, tighten this to match.
+const MAX_FILE_SIZE_MB = 4;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 const cardEl = document.getElementById('s-card');
 let selectedFiles = { invoice: null, packing_list: null };
 let currentToken = null;
+
+function formatSize(bytes) {
+  return (bytes / (1024 * 1024)).toFixed(1) + 'MB';
+}
 
 // ── STATE RENDERERS ──
 function renderError(icon, title, msg, showRetry) {
@@ -50,13 +62,13 @@ function renderUploadForm(meta) {
     </div>
 
     <div class="s-dropzone" id="dz-invoice" data-type="invoice">
-      <div class="s-dz-label">Commercial Invoice</div>
+      <div class="s-dz-label">Commercial Invoice <span class="s-dz-maxsize">(max ~${MAX_FILE_SIZE_MB}MB)</span></div>
       <div class="s-dz-text" id="dz-invoice-text">Click or drag a file here</div>
       <input type="file" id="file-invoice" accept=".pdf,.jpg,.jpeg,.png">
     </div>
 
     <div class="s-dropzone" id="dz-packing_list" data-type="packing_list">
-      <div class="s-dz-label">Packing List</div>
+      <div class="s-dz-label">Packing List <span class="s-dz-maxsize">(max ~${MAX_FILE_SIZE_MB}MB)</span></div>
       <div class="s-dz-text" id="dz-packing_list-text">Click or drag a file here</div>
       <input type="file" id="file-packing_list" accept=".pdf,.jpg,.jpeg,.png">
     </div>
@@ -92,7 +104,17 @@ function setFile(fileType, file) {
   selectedFiles[fileType] = file;
   const dz = document.getElementById(`dz-${fileType}`);
   dz.classList.add('filled');
-  document.getElementById(`dz-${fileType}-text`).innerHTML = `<span class="s-dz-filename">✓ ${escapeHtml(file.name)}</span>`;
+  dz.classList.remove('oversized');
+
+  const oversized = file.size > MAX_FILE_SIZE_BYTES;
+  if (oversized) {
+    dz.classList.add('oversized');
+    document.getElementById(`dz-${fileType}-text`).innerHTML =
+      `<span class="s-dz-filename">${escapeHtml(file.name)} (${formatSize(file.size)})</span>
+       <div class="s-dz-warning">⚠ Larger than the usual ~${MAX_FILE_SIZE_MB}MB guideline — it may still upload fine, but there's a higher chance of it failing. Worth trying anyway if this is your only copy.</div>`;
+  } else {
+    document.getElementById(`dz-${fileType}-text`).innerHTML = `<span class="s-dz-filename">✓ ${escapeHtml(file.name)} (${formatSize(file.size)})</span>`;
+  }
   updateSubmitBtn();
 }
 

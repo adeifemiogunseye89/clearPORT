@@ -71,7 +71,10 @@ body {
 }
 .s-dropzone.drag-over { border-color: var(--green); background: rgba(58,125,95,0.05); }
 .s-dropzone.filled { border-style: solid; border-color: var(--green); background: rgba(58,125,95,0.04); }
+.s-dropzone.oversized { border-color: var(--amber); background: rgba(192,122,42,0.05); }
 .s-dz-label { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--text3); font-family: var(--mono); margin-bottom: 6px; }
+.s-dz-maxsize { text-transform: none; letter-spacing: normal; opacity: 0.7; }
+.s-dz-warning { font-size: 11px; color: var(--amber); margin-top: 6px; line-height: 1.5; text-align: left; }
 .s-dz-text { font-size: 13px; color: var(--text2); }
 .s-dz-filename { font-size: 12.5px; color: var(--green2); font-weight: 600; word-break: break-all; }
 .s-dropzone input[type="file"] { display: none; }
