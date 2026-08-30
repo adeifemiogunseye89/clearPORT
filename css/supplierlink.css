@@ -21,7 +21,7 @@ body {
   justify-content: center; margin-bottom: 1.6rem;
   font-family: var(--display); font-size: 1.1rem; font-weight: 600; color: var(--text);
 }
-.s-brand em { font-style: italic; color: var(--green2); }
+.s-brand em { font-style: italic; color: var(--green); }
 .s-brand-mark {
   width: 28px; height: 28px; border-radius: 8px;
   background: var(--green); display: flex; align-items: center; justify-content: center;
