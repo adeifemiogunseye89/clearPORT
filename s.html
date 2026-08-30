@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Document Upload — ClearAI Pro</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&family=Epilogue:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/tokens.css">
+<link rel="stylesheet" href="css/s.css">
+</head>
+<body>
+
+<!-- Deliberately NOT app.html's shell — a supplier should never see
+     ClearAI's internal tool nav, sidebar, or API key bar. Just a
+     single focused card. -->
+<div class="s-wrap">
+
+  <div class="s-brand">
+    <div class="s-brand-mark">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="9"/>
+      </svg>
+    </div>
+    <span>Clear<em>AI</em> Pro</span>
+  </div>
+
+  <div class="s-card" id="s-card">
+    <!-- JS fills this based on the token's state -->
+    <div class="s-state" id="s-loading">
+      <div class="s-spinner"></div>
+      <p>Checking your link...</p>
+    </div>
+  </div>
+
+  <p class="s-footnote">Documents you upload here are used only to verify this shipment's paperwork before it ships. This is not a public form — the link you were sent is unique to this request.</p>
+
+</div>
+
+<script src="js/s.js"></script>
+</body>
+</html>
