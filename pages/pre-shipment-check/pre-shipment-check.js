@@ -50,6 +50,85 @@ Return ONLY valid JSON, no markdown:
 
 let lastReconReport = null;
 
+// ══════════════════════════════════════
+// STAGE 6 — loading a real supplier submission
+// Same Supabase project as every other page; calls the agent-review
+// Edge Function (Stage 6, Part A) to get signed download URLs, then
+// downloads and base64-encodes each file so callClaude() (extended
+// in shell.js) can hand them to Claude directly as real documents.
+// ══════════════════════════════════════
+const SUPABASE_URL = 'https://dvvadwrympflvqwoxtzh.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_PPV34_JovUy7VtLCnnTFjg_BA53APb3';
+const AGENT_REVIEW_URL = `${SUPABASE_URL}/functions/v1/agent-review`;
+
+let loadedAttachments = null; // null = using pasted text (default); once set, takes priority over Stage 2's textareas
+
+// Accepts either a full supplierlink.html?token=... link, or a bare token
+function extractToken(input) {
+  input = input.trim();
+  try {
+    const url = new URL(input);
+    const t = url.searchParams.get('token');
+    if (t) return t;
+  } catch (e) { /* not a full URL — treat the whole input as the token */ }
+  return input;
+}
+
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result.split(',')[1]); // strip the "data:...;base64," prefix
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function loadRealSubmission() {
+  const raw = document.getElementById('load-token-input').value;
+  const token = extractToken(raw);
+  const btn = document.getElementById('load-submission-btn');
+  const status = document.getElementById('load-submission-status');
+
+  if (!token) { status.textContent = 'Paste a link or token first'; return; }
+
+  btn.disabled = true;
+  status.textContent = 'Loading...';
+
+  try {
+    const res = await fetch(`${AGENT_REVIEW_URL}?token=${encodeURIComponent(token)}`, {
+      headers: { apikey: SUPABASE_ANON_KEY } // apikey ONLY — see STAGE_2_GUIDE.md
+    });
+    const data = await res.json();
+
+    if (!res.ok) { status.textContent = data.error || 'Could not load this submission'; btn.disabled = false; return; }
+    if (data.status !== 'submitted') { status.textContent = 'No documents submitted yet for this link'; btn.disabled = false; return; }
+    if (!data.documents || !data.documents.length) { status.textContent = 'Submission found, but no documents attached'; btn.disabled = false; return; }
+
+    const newAttachments = {};
+    for (const doc of data.documents) {
+      const fileRes = await fetch(doc.signed_url);
+      if (!fileRes.ok) throw new Error(`Could not download ${doc.type}`);
+      const blob = await fileRes.blob();
+      newAttachments[doc.type] = { media_type: blob.type, data: await blobToBase64(blob) };
+    }
+
+    loadedAttachments = newAttachments;
+    status.innerHTML = `✓ Loaded ${data.documents.length} document(s) for ${data.ref} — paste your Form M below, then run reconciliation. <a href="#" onclick="clearLoadedSubmission();return false;" style="color:var(--text3);text-decoration:underline">Use pasted text instead</a>`;
+    btn.disabled = false;
+    onReconInput(); // refresh the Stage 2 badge now that real files count as "loaded"
+  } catch (err) {
+    status.textContent = 'Something went wrong loading this submission — ' + err.message;
+    btn.disabled = false;
+  }
+}
+
+function clearLoadedSubmission() {
+  loadedAttachments = null;
+  document.getElementById('load-submission-status').textContent = '';
+  document.getElementById('load-token-input').value = '';
+  onReconInput();
+}
+
 function initPreShipmentCheck() {
   onReconInput();
   window.CurrentPage = { onKeyChange: onReconInput };
@@ -74,8 +153,8 @@ function onReconInput() {
   document.getElementById('stage1-badge').style.color = formm.length > 20 ? 'var(--green2)' : 'var(--text3)';
   document.getElementById('stage1-badge').style.borderColor = formm.length > 20 ? 'rgba(58,125,95,0.3)' : 'var(--border2)';
   document.getElementById('stage1-badge').style.background = formm.length > 20 ? 'var(--gdim)' : 'var(--bg3)';
-  const stage2Ready = invoice.length > 20 || packing.length > 20;
-  document.getElementById('stage2-badge').textContent = stage2Ready ? '✓ Loaded' : 'Not loaded';
+  const stage2Ready = invoice.length > 20 || packing.length > 20 || !!loadedAttachments;
+  document.getElementById('stage2-badge').textContent = loadedAttachments ? '✓ Loaded (real files)' : stage2Ready ? '✓ Loaded' : 'Not loaded';
   document.getElementById('stage2-badge').style.color = stage2Ready ? 'var(--green2)' : 'var(--text3)';
   document.getElementById('stage2-badge').style.borderColor = stage2Ready ? 'rgba(58,125,95,0.3)' : 'var(--border2)';
   document.getElementById('stage2-badge').style.background = stage2Ready ? 'var(--gdim)' : 'var(--bg3)';
@@ -100,8 +179,15 @@ async function runReconciliation() {
   steps.forEach((s,i)=>setTimeout(()=>{ document.getElementById(s).classList.add('on'); if(i>0) document.getElementById(steps[i-1]).classList.remove('on'); }, i*650));
 
   try {
-    const userMsg = `FORM M (baseline, filed by importer before order):\n${formm}\n\nCOMMERCIAL INVOICE (from supplier):\n${invoice || '(not provided)'}\n\nPACKING LIST (from supplier):\n${packing || '(not provided)'}`;
-    const res = await callClaude(RECON_PROMPT, userMsg, 1800);
+    let userMsg, attachments = [];
+    if (loadedAttachments) {
+      userMsg = `FORM M (baseline, filed by importer before order):\n${formm}\n\nThe Commercial Invoice and Packing List are attached below as the real documents uploaded by the supplier — read them directly.`;
+      if (loadedAttachments.invoice) attachments.push(loadedAttachments.invoice);
+      if (loadedAttachments.packing_list) attachments.push(loadedAttachments.packing_list);
+    } else {
+      userMsg = `FORM M (baseline, filed by importer before order):\n${formm}\n\nCOMMERCIAL INVOICE (from supplier):\n${invoice || '(not provided)'}\n\nPACKING LIST (from supplier):\n${packing || '(not provided)'}`;
+    }
+    const res = await callClaude(RECON_PROMPT, userMsg, 1800, attachments);
     lastReconReport = res;
     document.getElementById('pr-loading').classList.remove('on');
     steps.forEach(s=>document.getElementById(s).classList.remove('on'));

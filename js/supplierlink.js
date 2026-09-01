@@ -21,6 +21,13 @@ const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/supplier-submission`;
 const MAX_FILE_SIZE_MB = 4;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
+// Claude's document-reading API understands PDFs and images natively —
+// not Word docs, spreadsheets, etc. The file picker's `accept`
+// attribute only SUGGESTS these types; it doesn't block drag-and-drop
+// or "All Files" selections, so this is the real enforcement.
+const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
+const ALLOWED_LABEL = 'PDF, JPG, or PNG';
+
 const cardEl = document.getElementById('s-card');
 let selectedFiles = { invoice: null, packing_list: null };
 let currentToken = null;
@@ -62,13 +69,13 @@ function renderUploadForm(meta) {
     </div>
 
     <div class="s-dropzone" id="dz-invoice" data-type="invoice">
-      <div class="s-dz-label">Commercial Invoice <span class="s-dz-maxsize">(max ~${MAX_FILE_SIZE_MB}MB)</span></div>
+      <div class="s-dz-label">Commercial Invoice <span class="s-dz-maxsize">(PDF/JPG/PNG, max ~${MAX_FILE_SIZE_MB}MB)</span></div>
       <div class="s-dz-text" id="dz-invoice-text">Click or drag a file here</div>
       <input type="file" id="file-invoice" accept=".pdf,.jpg,.jpeg,.png">
     </div>
 
     <div class="s-dropzone" id="dz-packing_list" data-type="packing_list">
-      <div class="s-dz-label">Packing List <span class="s-dz-maxsize">(max ~${MAX_FILE_SIZE_MB}MB)</span></div>
+      <div class="s-dz-label">Packing List <span class="s-dz-maxsize">(PDF/JPG/PNG, max ~${MAX_FILE_SIZE_MB}MB)</span></div>
       <div class="s-dz-text" id="dz-packing_list-text">Click or drag a file here</div>
       <input type="file" id="file-packing_list" accept=".pdf,.jpg,.jpeg,.png">
     </div>
@@ -101,8 +108,20 @@ function setupDropzone(fileType) {
 }
 
 function setFile(fileType, file) {
-  selectedFiles[fileType] = file;
   const dz = document.getElementById(`dz-${fileType}`);
+
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    dz.classList.remove('filled');
+    dz.classList.add('oversized'); // reuse the amber "warning" styling for this too
+    document.getElementById(`dz-${fileType}-text`).innerHTML =
+      `<span class="s-dz-filename">${escapeHtml(file.name)}</span>
+       <div class="s-dz-warning">✕ This file type isn't supported — please use ${ALLOWED_LABEL} only.</div>`;
+    selectedFiles[fileType] = null; // make sure a rejected file can't still be submitted
+    updateSubmitBtn();
+    return;
+  }
+
+  selectedFiles[fileType] = file;
   dz.classList.add('filled');
   dz.classList.remove('oversized');
 

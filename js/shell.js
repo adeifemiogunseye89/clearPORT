@@ -76,7 +76,22 @@ function updateAllBtns() {
 }
 
 // ── SHARED CLAUDE API CALL — every page module uses this
-async function callClaude(system, userMsg, maxTokens=1800) {
+// `attachments` is optional: an array of {media_type, data} where
+// `data` is base64 file content. Used by Pre-Shipment Check's real-
+// document loading (Stage 6) to hand Claude actual PDFs/images
+// instead of pasted text. Every other existing caller passes nothing
+// here, so this is fully backward compatible — when attachments is
+// empty, the request body is built exactly as it always was.
+async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
+  let content = userMsg;
+  if (attachments.length) {
+    content = attachments.map(att => ({
+      type: att.media_type === 'application/pdf' ? 'document' : 'image',
+      source: { type: 'base64', media_type: att.media_type, data: att.data }
+    }));
+    content.push({ type: 'text', text: userMsg });
+  }
+
   const r = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -88,7 +103,7 @@ async function callClaude(system, userMsg, maxTokens=1800) {
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: maxTokens,
-      system, messages:[{role:'user',content:userMsg}]
+      system, messages:[{role:'user',content}]
     })
   });
   if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e?.error?.message||`API error ${r.status}`); }

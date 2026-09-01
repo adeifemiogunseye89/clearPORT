@@ -35,9 +35,9 @@ function checkLinkFormReady() {
   const ref = document.getElementById('scp-ref').value.trim();
   document.getElementById('scp-generate-btn').disabled = !agent || !ref;
 }
-
 async function generateSupplierLink() {
   const agent = document.getElementById('scp-agent').value.trim();
+  const agentEmail = document.getElementById('scp-agent-email').value.trim();
   const supplier = document.getElementById('scp-supplier').value.trim();
   const ref = document.getElementById('scp-ref').value.trim();
   const port = document.getElementById('scp-port').value;
@@ -66,6 +66,7 @@ async function generateSupplierLink() {
       body: JSON.stringify({
         token,
         agent_name: agent,
+        agent_email: agentEmail || null,
         supplier_name: supplier || null,
         ref,
         port: port || null,

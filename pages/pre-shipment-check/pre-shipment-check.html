@@ -25,6 +25,21 @@
     </div>
   </div>
 
+  <!-- STAGE 6 ADDITION: LOAD A REAL SUPPLIER SUBMISSION -->
+  <div class="checker-card" style="margin-bottom:14px">
+    <div class="cc-header">
+      <div>
+        <div class="cc-title">Optional — Load a Real Supplier Submission</div>
+        <div class="cc-sub">Paste the link (or just the token) you generated in Supplier Portal to pull in the real uploaded Invoice/Packing List, instead of pasting text below.</div>
+      </div>
+    </div>
+    <div class="cc-input" style="border-bottom:none">
+      <input type="text" class="form-input" id="load-token-input" placeholder="Paste the supplier link or token here" style="margin-bottom:10px">
+      <button class="btn-sm btn-out" onclick="loadRealSubmission()" id="load-submission-btn">Load Submitted Documents</button>
+      <span class="cc-info" id="load-submission-status" style="margin-left:10px"></span>
+    </div>
+  </div>
+
   <!-- STAGE 1: FORM M -->
   <div class="checker-card" style="margin-bottom:14px">
     <div class="cc-header">
