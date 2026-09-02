@@ -17,10 +17,11 @@
 // never need the row echoed back — see STAGE_2_GUIDE.md's key-header
 // rule (apikey only, never Authorization) for why the fetch below is
 // built the way it is.
+//
+// SUPABASE_URL / SUPABASE_ANON_KEY live in shell.js, not here — see
+// the comment there for why (a real redeclaration bug, not a style
+// choice).
 // ══════════════════════════════════════
-
-const SUPABASE_URL = 'https://dvvadwrympflvqwoxtzh.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_PPV34_JovUy7VtLCnnTFjg_BA53APb3';
 
 function initSupplierPortal() {
   checkLinkFormReady();

@@ -26,6 +26,17 @@
 
 let apiKey = '';
 
+// Shared Supabase project details — declared ONCE, here, since shell.js
+// is guaranteed to load before any page's own script. Individual page
+// modules (supplier-portal.js, pre-shipment-check.js) used to each
+// declare their own copies of these same two constants; when both
+// scripts ended up loaded on the same page together, that caused a
+// real "already declared" collision that silently broke whichever
+// script loaded second. Centralizing them here removes the collision
+// at its root instead of just avoiding it in each new page.
+const SUPABASE_URL = 'https://dvvadwrympflvqwoxtzh.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_PPV34_JovUy7VtLCnnTFjg_BA53APb3';
+
 // pageId -> folder/file on disk + the label shown in "recently used"
 const ROUTES = {
   'doc-val':      { folder: 'doc-validation',       file: 'doc-validation',       label: 'Document Check' },
@@ -92,23 +103,40 @@ async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
     content.push({ type: 'text', text: userMsg });
   }
 
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type':'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version':'2023-06-01',
-      'anthropic-dangerous-direct-browser-access':'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: maxTokens,
-      system, messages:[{role:'user',content}]
-    })
-  });
+  // Hard timeout — without this, a hung network request spins forever
+  // with no way for the user to recover except reloading the page.
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  let r;
+  try {
+    r = await fetch('https://api.anthropic.com/v1/messages', {
+      signal: controller.signal,
+      method: 'POST',
+      headers: {
+        'Content-Type':'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: maxTokens,
+        system, messages:[{role:'user',content}]
+      })
+    });
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('Request timed out after 30s');
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
   if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e?.error?.message||`API error ${r.status}`); }
   const d = await r.json();
-  return JSON.parse(d.content[0].text.replace(/```json|```/g,'').trim());
+  const textBlock = d.content?.find(b => b.type === 'text');
+  if (!textBlock) throw new Error('AI returned no text block');
+  return JSON.parse(textBlock.text.replace(/```json|```/g,'').trim());
 }
 
 // ── NAVIGATION / ROUTER — fetches the target page's HTML fragment,

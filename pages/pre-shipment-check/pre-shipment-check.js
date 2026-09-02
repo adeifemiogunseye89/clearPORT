@@ -56,10 +56,19 @@ let lastReconReport = null;
 // Edge Function (Stage 6, Part A) to get signed download URLs, then
 // downloads and base64-encodes each file so callClaude() (extended
 // in shell.js) can hand them to Claude directly as real documents.
+//
+// SUPABASE_URL / SUPABASE_ANON_KEY live in shell.js, not here — see
+// the comment there for why (a real redeclaration bug, not a style
+// choice).
 // ══════════════════════════════════════
-const SUPABASE_URL = 'https://dvvadwrympflvqwoxtzh.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_PPV34_JovUy7VtLCnnTFjg_BA53APb3';
-const AGENT_REVIEW_URL = `${SUPABASE_URL}/functions/v1/agent-review`;
+// Note the capital "R" — this must match the function's name exactly as
+// deployed in the Supabase dashboard (Edge Functions > agent-Review).
+// URL paths are case-sensitive; a mismatch here causes the platform's
+// router to fail to find any matching function at all — which shows up
+// in the browser as a confusing CORS/preflight error, not a clear
+// "route not found", and produces zero entries in that function's own
+// Logs tab since the request never actually reaches its code.
+const AGENT_REVIEW_URL = `${SUPABASE_URL}/functions/v1/agent-Review`;
 
 let loadedAttachments = null; // null = using pasted text (default); once set, takes priority over Stage 2's textareas
 
@@ -96,8 +105,19 @@ async function loadRealSubmission() {
 
   try {
     const res = await fetch(`${AGENT_REVIEW_URL}?token=${encodeURIComponent(token)}`, {
-      headers: { apikey: SUPABASE_ANON_KEY } // apikey ONLY — see STAGE_2_GUIDE.md
+      headers: { apikey: SUPABASE_ANON_KEY } // apikey ONLY — confirmed working directly against this project; see STAGE_2_GUIDE.md
     });
+
+    // Defensive parse: if this ever returns something that isn't JSON
+    // (e.g. the function genuinely doesn't exist, or a proxy/network
+    // layer intercepts it), fail with a readable message instead of
+    // a cryptic "Unexpected token <" from a failed res.json() call.
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('application/json')) {
+      const bodyText = await res.text();
+      console.error('Non-JSON response from agent-review:', bodyText.slice(0, 300));
+      throw new Error(`Server returned an unexpected response (HTTP ${res.status}).`);
+    }
     const data = await res.json();
 
     if (!res.ok) { status.textContent = data.error || 'Could not load this submission'; btn.disabled = false; return; }
@@ -107,8 +127,9 @@ async function loadRealSubmission() {
     const newAttachments = {};
     for (const doc of data.documents) {
       const fileRes = await fetch(doc.signed_url);
-      if (!fileRes.ok) throw new Error(`Could not download ${doc.type}`);
+      if (!fileRes.ok) throw new Error(`Could not download ${doc.type} (HTTP ${fileRes.status})`);
       const blob = await fileRes.blob();
+      if (!blob.size) throw new Error(`Downloaded ${doc.type} was empty`);
       newAttachments[doc.type] = { media_type: blob.type, data: await blobToBase64(blob) };
     }
 
@@ -117,6 +138,7 @@ async function loadRealSubmission() {
     btn.disabled = false;
     onReconInput(); // refresh the Stage 2 badge now that real files count as "loaded"
   } catch (err) {
+    console.error('loadRealSubmission failed:', err);
     status.textContent = 'Something went wrong loading this submission — ' + err.message;
     btn.disabled = false;
   }
@@ -161,9 +183,11 @@ function onReconInput() {
 
   const ready = formm.length > 20 && stage2Ready;
   document.getElementById('pr-btn').disabled = !ready || !apiKey;
-  document.getElementById('pr-status').textContent = ready
-    ? 'Ready to reconcile — Form M baseline + supplier documents loaded'
-    : 'Load Stage 1 and Stage 2 to run reconciliation';
+  document.getElementById('pr-status').textContent = !ready
+    ? 'Load Stage 1 and Stage 2 to run reconciliation'
+    : !apiKey
+    ? 'Connect your API key above to run reconciliation'
+    : 'Ready to reconcile — Form M baseline + supplier documents loaded';
 }
 
 async function runReconciliation() {
