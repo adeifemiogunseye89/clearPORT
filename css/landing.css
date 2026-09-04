@@ -366,6 +366,78 @@ body{
   background:rgba(58,125,95,0.15);color:var(--sage);
   border:1px solid rgba(58,125,95,0.2);
 }
+  .port-carousel-track {
+    display: flex;
+    gap: 12px;
+    width: max-content;
+    padding: 0 2rem;
+    animation: portScroll 32s ease-in-out infinite;
+  }
+
+  .port-carousel-wrap:hover .port-carousel-track {
+    animation-play-state: paused;
+  }
+
+  .carousel-item {
+    flex: 0 0 auto;
+    width: 280px;
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .carousel-item img {
+    width: 100%;
+    height: 320px;
+    object-fit: cover;
+    display: block;
+  }
+
+  .carousel-tag {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    font-size: 11px;
+    font-family: var(--mono);
+    color: #fff;
+    background: rgba(0,0,0,0.5);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  @keyframes portScroll {
+    0%   { transform: translateX(0); }
+    100% { transform: translateX(-50%); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .port-carousel-track { animation: none; }
+    .port-carousel-wrap { overflow-x: auto; }
+  }
+  .carousel-item {
+  animation: itemPulse 4.8s ease-in-out infinite;
+  transform-origin: center;
+}
+
+/* Stagger each item's pulse peak so they wave in sequence as the track slides */
+.carousel-item:nth-child(1)  { animation-delay: 0s; }
+.carousel-item:nth-child(2)  { animation-delay: -0.4s; }
+.carousel-item:nth-child(3)  { animation-delay: -0.8s; }
+.carousel-item:nth-child(4)  { animation-delay: -1.2s; }
+.carousel-item:nth-child(5)  { animation-delay: -1.6s; }
+.carousel-item:nth-child(6)  { animation-delay: -2.0s; }
+.carousel-item:nth-child(7)  { animation-delay: -2.4s; }
+.carousel-item:nth-child(8)  { animation-delay: -2.8s; }
+.carousel-item:nth-child(9)  { animation-delay: -3.2s; }
+.carousel-item:nth-child(10) { animation-delay: -3.6s; }
+.carousel-item:nth-child(11) { animation-delay: -4.0s; }
+.carousel-item:nth-child(12) { animation-delay: -4.4s; }
+
+@keyframes itemPulse {
+  0%   { transform: scale(0.82); opacity: 0.6; }
+  50%  { transform: scale(1);    opacity: 1;   }
+  100% { transform: scale(0.82); opacity: 0.6; }
+}
 
 /* ── SOLUTION SECTION ── */
 .solution-section{padding:5rem 2rem;background:var(--cream)}
@@ -480,7 +552,7 @@ body{
   padding:6rem 2rem;
   background:
     linear-gradient(180deg, rgba(30,24,16,0.75), rgba(30,24,16,0.92)),
-    url('../images/cta-bg.jpg');
+    url('../images/lekkiPort-sunset.jpg');
   background-size: cover;
   background-position: center 40%;
   text-align:center;position:relative;overflow:hidden;
@@ -488,7 +560,7 @@ body{
 .cta-section::before{
   content:'';position:absolute;inset:0;
   background:
-    radial-gradient(ellipse 700px 500px at 50% 50%, rgba(58,125,95,0.1) 0%, transparent 70%);
+    radial-gradient(ellipse 700px 500px at 50% 50%, rgba(58,125,95,0.1) 0%, transparent 90%);
 }
 .cta-inner{max-width:680px;margin:0 auto;position:relative;z-index:1}
 .cta-tag{
