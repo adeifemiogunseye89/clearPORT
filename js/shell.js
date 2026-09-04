@@ -36,6 +36,7 @@ let apiKey = '';
 // at its root instead of just avoiding it in each new page.
 const SUPABASE_URL = 'https://dvvadwrympflvqwoxtzh.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_PPV34_JovUy7VtLCnnTFjg_BA53APb3';
+const CLAUDE_PROXY_URL = `${SUPABASE_URL}/functions/v1/claude-proxy`;
 
 // pageId -> folder/file on disk + the label shown in "recently used"
 const ROUTES = {
@@ -66,15 +67,15 @@ window.addEventListener('DOMContentLoaded', () => {
 function setKeyStatus(ok) {
   const el = document.getElementById('api-status');
   el.className = 'api-status' + (ok ? ' ok' : '');
-  el.innerHTML = ok ? '✓ Connected — all AI features active' : 'Required for all AI features · <a href="https://console.anthropic.com" target="_blank" style="color:var(--green2)">Get free key →</a>';
+  el.innerHTML = ok ? '✓ Connected — all AI features active' : 'Required for all AI features — this beta runs on a shared, rate-limited connection, no personal API key needed';
 }
 
 function saveKey() {
   const k = document.getElementById('api-key').value.trim();
-  if (!k.startsWith('sk-ant')) { showToast('Invalid key','Must start with sk-ant...',false); return; }
+  if (!k) { showToast('Missing code','Paste your invite code first',false); return; }
   apiKey = k; localStorage.setItem('clearai_key', k);
   setKeyStatus(true); updateAllBtns();
-  showToast('Connected ✓','API key saved',true);
+  showToast('Connected ✓','Invite code saved',true);
 }
 
 // Refreshes only the currently-loaded page's own button state — see the
@@ -87,42 +88,31 @@ function updateAllBtns() {
 }
 
 // ── SHARED CLAUDE API CALL — every page module uses this
+// PUBLIC BETA: this now calls our own claude-proxy Edge Function
+// instead of api.anthropic.com directly. The real Anthropic key lives
+// only server-side now — `apiKey` here is actually the user's invite
+// code (kept under the same variable/localStorage name deliberately,
+// so every existing per-page `!apiKey` check across the whole app
+// keeps working unchanged; only what it represents has changed).
 // `attachments` is optional: an array of {media_type, data} where
-// `data` is base64 file content. Used by Pre-Shipment Check's real-
-// document loading (Stage 6) to hand Claude actual PDFs/images
-// instead of pasted text. Every other existing caller passes nothing
-// here, so this is fully backward compatible — when attachments is
-// empty, the request body is built exactly as it always was.
+// `data` is base64 file content, used by Pre-Shipment Check's real-
+// document loading (Stage 6).
 async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
-  let content = userMsg;
-  if (attachments.length) {
-    content = attachments.map(att => ({
-      type: att.media_type === 'application/pdf' ? 'document' : 'image',
-      source: { type: 'base64', media_type: att.media_type, data: att.data }
-    }));
-    content.push({ type: 'text', text: userMsg });
-  }
-
-  // Hard timeout — without this, a hung network request spins forever
-  // with no way for the user to recover except reloading the page.
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30000);
 
   let r;
   try {
-    r = await fetch('https://api.anthropic.com/v1/messages', {
+    r = await fetch(CLAUDE_PROXY_URL, {
       signal: controller.signal,
       method: 'POST',
       headers: {
         'Content-Type':'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
+        'apikey': SUPABASE_ANON_KEY, // Supabase's own gate on the function — apikey ONLY, see STAGE_2_GUIDE.md
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: maxTokens,
-        system, messages:[{role:'user',content}]
+        inviteCode: apiKey,
+        system, userMsg, maxTokens, attachments
       })
     });
   } catch (err) {
@@ -132,7 +122,7 @@ async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
     clearTimeout(timeoutId);
   }
 
-  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e?.error?.message||`API error ${r.status}`); }
+  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e?.error||`Request failed (${r.status})`); }
   const d = await r.json();
   const textBlock = d.content?.find(b => b.type === 'text');
   if (!textBlock) throw new Error('AI returned no text block');
