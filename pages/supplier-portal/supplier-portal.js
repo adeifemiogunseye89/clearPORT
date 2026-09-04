@@ -26,6 +26,7 @@
 function initSupplierPortal() {
   checkLinkFormReady();
   window.CurrentPage = { onKeyChange: function(){} };
+    window.CurrentPage._guardId = 'supplier';
 }
 
 // Cheap, client-side only — just enables/disables the Generate Link
@@ -149,6 +150,6 @@ async function simulateSupplierSubmission() {
     showToast('Preview failed', err.message.substring(0,120), false);
   }
 }
-
+simulateSupplierSubmission = guardApiCall('supplier', simulateSupplierSubmission);
 window.PageInit = window.PageInit || {};
 window.PageInit['supplier'] = initSupplierPortal;

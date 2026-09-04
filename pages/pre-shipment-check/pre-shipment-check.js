@@ -154,6 +154,7 @@ function clearLoadedSubmission() {
 function initPreShipmentCheck() {
   onReconInput();
   window.CurrentPage = { onKeyChange: onReconInput };
+    window.CurrentPage._guardId = 'pre-check';
 }
 
 function loadReconSample(which) {
@@ -264,5 +265,7 @@ function copyReconReport() {
   navigator.clipboard.writeText(lines.join('\n')).then(()=>showToast('Copied ✓','Report copied',true)).catch(()=>showToast('Failed','Copy manually',false));
 }
 
+runReconciliation = guardApiCall('pre-check', runReconciliation);
+loadRealSubmission = guardApiCall('pre-check', loadRealSubmission);
 window.PageInit = window.PageInit || {};
 window.PageInit['pre-check'] = initPreShipmentCheck;

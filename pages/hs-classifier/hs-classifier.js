@@ -15,6 +15,7 @@ function initHSClassifier() {
   if (d) d.addEventListener('input', updateHSBtn);
   updateHSBtn();
   window.CurrentPage = { onKeyChange: updateHSBtn };
+    window.CurrentPage._guardId = 'hs-class';
 }
 
 function updateHSBtn() {
@@ -73,6 +74,6 @@ function renderHS(r, product) {
   document.getElementById('hs-result').classList.add('on');
   document.getElementById('hs-btn').disabled = false;
 }
-
+runHS = guardApiCall('hs-class', runHS);
 window.PageInit = window.PageInit || {};
 window.PageInit['hs-class'] = initHSClassifier;

@@ -12,6 +12,7 @@ function initAdvanceRuling() {
   });
   updateArBtn();
   window.CurrentPage = { onKeyChange: updateArBtn };
+  window.CurrentPage._guardId = 'ruling';
 }
 
 function fillRuling(no, code, desc) {
@@ -68,6 +69,6 @@ async function runRulingCheck() {
     showToast('Check failed', err.message.substring(0,120), false);
   }
 }
-
+runRulingCheck = guardApiCall('ruling', runRulingCheck);
 window.PageInit = window.PageInit || {};
 window.PageInit['ruling'] = initAdvanceRuling;

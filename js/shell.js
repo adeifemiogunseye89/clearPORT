@@ -97,7 +97,7 @@ function updateAllBtns() {
 // `attachments` is optional: an array of {media_type, data} where
 // `data` is base64 file content, used by Pre-Shipment Check's real-
 // document loading (Stage 6).
-async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
+/*async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 30000);
 
@@ -127,6 +127,94 @@ async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
   const textBlock = d.content?.find(b => b.type === 'text');
   if (!textBlock) throw new Error('AI returned no text block');
   return JSON.parse(textBlock.text.replace(/```json|```/g,'').trim());
+}*/
+
+async function callClaude(system, userMsg, maxTokens = 1800, attachments = []) {
+  let content = userMsg;
+
+  if (attachments.length) {
+    content = attachments.map(att => ({
+      type: att.media_type === 'application/pdf' ? 'document' : 'image',
+      source: { type: 'base64', media_type: att.media_type, data: att.data }
+    }));
+    content.push({ type: 'text', text: userMsg });
+  }
+
+  // Derive abort signal from whichever page is currently running
+  const pageId = window.CurrentPage?._guardId;
+  const signal = pageId ? _apiGuard.get(pageId)?.abortCtrl?.signal : undefined;
+
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    signal,
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: maxTokens,
+      system,
+      messages: [{ role: 'user', content }]
+    })
+  });
+
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({}));
+    throw new Error(e?.error?.message || `API error ${r.status}`);
+  }
+  const d = await r.json();
+  
+  // Defensive: find text block, don't assume content[0]
+  const textBlock = d.content?.find(b => b.type === 'text');
+  if (!textBlock) throw new Error('AI returned no text block');
+  
+  const raw = textBlock.text.replace(/```json|```/g, '').trim();
+  return JSON.parse(raw);
+}
+
+// ══════════════════════════════════════
+// API CALL GUARD — prevents double-submission, hammering, and race
+// conditions across all tool pages that fire paid API calls.
+//
+// Usage in any page module:
+//   runValidation = guardApiCall('doc-val', runValidation);
+//   runHS         = guardApiCall('hs-class', runHS);
+//
+// The guard:
+// 1. Blocks concurrent calls with a toast ("Already running...")
+// 2. Attaches an AbortController to callClaude for cancellation
+// 3. Guarantees the flag is cleared even if the promise throws
+// ══════════════════════════════════════
+
+const _apiGuard = new Map(); // pageId -> { running: boolean, abortCtrl: AbortController|null }
+
+function guardApiCall(pageId, fn) {
+  return async function(...args) {
+    const state = _apiGuard.get(pageId);
+    if (state?.running) {
+      showToast('Already running', 'Please wait for the current check to complete', false);
+      return;
+    }
+    const abortCtrl = new AbortController();
+    _apiGuard.set(pageId, { running: true, abortCtrl });
+    try {
+      return await fn.apply(this, args);
+    } finally {
+      _apiGuard.set(pageId, { running: false, abortCtrl: null });
+    }
+  };
+}
+
+// Optional: programmatic abort (e.g. if user navigates away mid-call)
+function abortApiCall(pageId) {
+  const state = _apiGuard.get(pageId);
+  if (state?.abortCtrl) {
+    state.abortCtrl.abort();
+    _apiGuard.set(pageId, { running: false, abortCtrl: null });
+  }
 }
 
 // ── NAVIGATION / ROUTER — fetches the target page's HTML fragment,

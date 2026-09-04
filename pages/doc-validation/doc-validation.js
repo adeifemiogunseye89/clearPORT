@@ -117,6 +117,7 @@ function initDocValidation() {
   updateDocValBtn();
   // Register so the shell can refresh this page's button when the API key changes
   window.CurrentPage = { onKeyChange: updateDocValBtn };
+    window.CurrentPage._guardId = 'doc-val';
 }
 
 function updateDocValBtn() {
@@ -214,5 +215,6 @@ function copyValReport() {
 }
 
 // Register this page with the shell router
+runValidation = guardApiCall('doc-val', runValidation);
 window.PageInit = window.PageInit || {};
 window.PageInit['doc-val'] = initDocValidation;
