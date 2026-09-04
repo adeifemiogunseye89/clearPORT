@@ -64,6 +64,7 @@ async function runRulingCheck() {
     document.getElementById('ar-result').style.display = 'block';
     document.getElementById('ar-btn').disabled = false;
   } catch(err) {
+     if (isNavigationAbort(err)) return; 
     document.getElementById('ar-loading').style.display = 'none';
     document.getElementById('ar-btn').disabled = false;
     showToast('Check failed', err.message.substring(0,120), false);

@@ -93,6 +93,7 @@ async function generateSupplierLink() {
     window._supplierMeta = { agent, supplier, ref, port };
     showToast('Link generated ✓', 'Ready to share with your supplier', true);
   } catch (err) {
+     if (isNavigationAbort(err)) return; 
     showToast('Could not generate link', err.message.substring(0, 120), false);
     display.textContent = 'Something went wrong — try again';
     display.classList.remove('active');

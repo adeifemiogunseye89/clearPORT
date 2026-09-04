@@ -217,6 +217,13 @@ function abortApiCall(pageId) {
   }
 }
 
+// Helper: page modules use this to silently swallow errors caused by
+// the user navigating away mid-request. Prevents toasts and null-DOM
+// crashes on the new page.
+function isNavigationAbort(err) {
+  return err?.name === 'AbortError' || err?.message?.includes('aborted');
+}
+
 // ── NAVIGATION / ROUTER — fetches the target page's HTML fragment,
 // injects it, loads that page's <link> CSS + <script> JS if not already
 // loaded, then calls that page's init function.
@@ -227,6 +234,9 @@ const _loadedPageAssets = new Set(); // pageId -> full bundle (CSS+JS) loaded
 const _loadedScripts = new Set();    // pageId -> JS file loaded (script-only or full)
 
 async function navTo(btn, pageId) {
+    // ── BONUS: cancel any paid API work from the page we're leaving ──
+  const leavingId = window.CurrentPage?._guardId;
+  if (leavingId) abortApiCall(leavingId);
   const route = ROUTES[pageId];
   if (!route) { console.error('Unknown page:', pageId); return; }
 

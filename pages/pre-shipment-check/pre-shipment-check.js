@@ -138,6 +138,7 @@ async function loadRealSubmission() {
     btn.disabled = false;
     onReconInput(); // refresh the Stage 2 badge now that real files count as "loaded"
   } catch (err) {
+     if (isNavigationAbort(err)) return; 
     console.error('loadRealSubmission failed:', err);
     status.textContent = 'Something went wrong loading this submission — ' + err.message;
     btn.disabled = false;
@@ -218,6 +219,7 @@ async function runReconciliation() {
     steps.forEach(s=>document.getElementById(s).classList.remove('on'));
     renderReconResults(res);
   } catch(err) {
+     if (isNavigationAbort(err)) return; 
     document.getElementById('pr-loading').classList.remove('on');
     document.getElementById('pr-btn').disabled = false;
     steps.forEach(s=>document.getElementById(s).classList.remove('on'));

@@ -166,6 +166,7 @@ async function runValidation() {
     steps.forEach(s=>document.getElementById(s).classList.remove('on'));
     renderValResults(res);
   } catch(err) {
+     if (isNavigationAbort(err)) return; 
     document.getElementById('cc-loading').classList.remove('on');
     document.getElementById('val-btn').disabled = false;
     steps.forEach(s=>document.getElementById(s).classList.remove('on'));
