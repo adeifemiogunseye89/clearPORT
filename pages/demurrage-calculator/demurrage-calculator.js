@@ -28,8 +28,9 @@ function addTier() {
 function daysBetween(d1, d2) {
   if (!d1 || !d2) return 0;
   const a = new Date(d1), b = new Date(d2);
+  if (isNaN(a) || isNaN(b)) throw new Error('Invalid date entered');
   const diff = Math.round((b - a) / (1000*60*60*24));
-  return diff > 0 ? diff : 0;
+  return Math.max(0, diff);
 }
 
 // Typical published starting rates by tier-day-range — user must confirm against actual contract.
@@ -86,7 +87,22 @@ function recalcDemurrage() {
     return;
   }
 
-  const baseDelayDays = daysBetween(arrival, clearance);
+  let baseDelayDays;
+  try {
+    baseDelayDays = daysBetween(arrival, clearance);
+  } catch (err) {
+    // Native <input type="date"> can only ever hold a valid date or
+    // empty (caught above) in modern browsers — this only fires on
+    // older/unusual browsers that silently fall back to a plain text
+    // field for type="date". Fail visibly rather than showing a
+    // confidently-wrong $0 estimate.
+    document.getElementById('dem-empty').style.display = 'flex';
+    document.getElementById('dem-live').classList.remove('on');
+    document.getElementById('dem-copy-btn').style.display = 'none';
+    document.getElementById('dem-print-btn').style.display = 'none';
+    showToast('Invalid date', 'Check the arrival and clearance dates entered', false);
+    return;
+  }
   const effectiveFree = Math.min(freeTerminal, freeLine);
   const lowDelayDays = Math.max(0, baseDelayDays - effectiveFree);
   const highDelayDays = Math.max(0, (baseDelayDays + scHigh) - effectiveFree);
@@ -180,7 +196,7 @@ function copyDemReport() {
     '',
     'Based on user-entered rates — not a fixed platform figure. Confirm against your actual shipping line and terminal tariff.'
   ];
-  navigator.clipboard.writeText(lines.join('\n')).then(()=>showToast('Copied ✓','Estimate copied',true)).catch(()=>showToast('Failed','Copy manually',false));
+  copyToClipboard(lines.join('\n')).then(()=>showToast('Copied ✓','Estimate copied',true)).catch(()=>showToast('Failed','Copy manually',false));
 }
 
 window.PageInit = window.PageInit || {};

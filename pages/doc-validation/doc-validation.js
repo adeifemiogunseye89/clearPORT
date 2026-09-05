@@ -20,8 +20,13 @@ const DOC_META = {
 };
 
 // ── SAMPLE DATA
+// Each sample carries its own document type directly — this used to be
+// a separate lookup table in loadSamp() that had to be kept in sync by
+// hand; a new sample added here with no matching entry there would
+// silently default to the wrong validator. Embedding the type removes
+// that whole class of mistake.
 const SAMPLES = {
-  'fm-ok': `Form M Application — Lekki Deep Sea Port
+  'fm-ok': { type: 'form-m', text: `Form M Application — Lekki Deep Sea Port
 Form M Number: FM2025-LKI-084721
 Date of Issue: 15 May 2025
 Applicant: Dangote Industries Limited
@@ -37,8 +42,8 @@ Country of Origin: Germany
 Port of Discharge: Lekki Deep Sea Port
 Incoterms: CIF Lagos
 Insurance Policy: NIA/2025/MB/00472 — AIICO Insurance Plc
-Valid Until: 15 August 2025`,
-  'fm-err': `Form M Application
+Valid Until: 15 August 2025` },
+  'fm-err': { type: 'form-m', text: `Form M Application
 Form M Number: FM2025-LKI-091033
 Date of Issue: 3 March 2025
 Applicant: Kalos Trading Co
@@ -53,8 +58,8 @@ Total Value: USD 500
 Country of Origin: UNKNOWN
 Port of Discharge: Apapa
 Insurance: Not stated
-Valid Until: 1 January 2025`,
-  'bol': `BILL OF LADING
+Valid Until: 1 January 2025` },
+  'bol': { type: 'bol', text: `BILL OF LADING
 B/L Number: CMDU2025NGA04481
 Vessel: CMA CGM SCANDOLA
 Voyage: 0127W
@@ -67,8 +72,8 @@ Description: Generator Sets (Diesel) — 3 x 40ft containers
 Gross Weight: 67,500 KG / Volume: 108 CBM
 Freight: PREPAID
 HS Code: 8502.11.00
-Originals: 3`,
-  'invoice': `COMMERCIAL INVOICE & PACKING LIST
+Originals: 3` },
+  'invoice': { type: 'invoice', text: `COMMERCIAL INVOICE & PACKING LIST
 Invoice: INV-2025-NG-4821 / Date: 10 April 2025
 Seller: Guangdong Electronics Co. Ltd, Shenzhen, China
 Buyer: Lagos Tech Distributors Ltd, 5 Commercial Road, Apapa, Lagos
@@ -78,8 +83,8 @@ Quantity: 200 units / Unit Price: USD 185.00 / Total: USD 37,000
 Incoterms: FOB Shenzhen
 Country of Origin: China
 Packages: 200 cartons / Gross Weight: 5,200 KG / Volume: 62 CBM
-Port of Discharge: Lekki Deep Sea Port`,
-  'gatepass': `GATE PASS / TALLY SHEET
+Port of Discharge: Lekki Deep Sea Port` },
+  'gatepass': { type: 'gatepass', text: `GATE PASS / TALLY SHEET
 Gate Pass: LDSP-GP-2025-091234 / Date: 28 May 2025
 Terminal: Lekki Deep Sea Port — Terminal 1
 Container: CMAU8847362 / Seal: NP20039921 — INTACT
@@ -90,7 +95,7 @@ Customs Release Note: NCS/REL/2025/084721
 Exit Time: 14:35
 Gate Officer: O. Adeyemi / Vehicle: KJA-421-XY / Driver: Musa Ibrahim
 Cargo: Generator Sets — 3 units / Weight: 67,500 KG
-Tally Confirmed: YES / Port Charges Paid: YES — NPA-EPAY-2025-091234`
+Tally Confirmed: YES / Port Charges Paid: YES — NPA-EPAY-2025-091234` }
 };
 
 // ── VALIDATION PROMPT
@@ -117,7 +122,6 @@ function initDocValidation() {
   updateDocValBtn();
   // Register so the shell can refresh this page's button when the API key changes
   window.CurrentPage = { onKeyChange: updateDocValBtn };
-    window.CurrentPage._guardId = 'doc-val';
 }
 
 function updateDocValBtn() {
@@ -139,13 +143,13 @@ function selDoc(el, type) {
 }
 
 function loadSamp(key) {
-  const typeMap = {'fm-ok':'form-m','fm-err':'form-m','bol':'bol','invoice':'invoice','gatepass':'gatepass'};
-  const t = typeMap[key] || 'form-m';
+  const sample = SAMPLES[key];
+  if (!sample) return;
   document.querySelectorAll('.doc-card').forEach(c => {
-    if (c.dataset.type === t) { c.classList.add('active'); selDoc(c, t); }
+    if (c.dataset.type === sample.type) { c.classList.add('active'); selDoc(c, sample.type); }
     else c.classList.remove('active');
   });
-  document.getElementById('doc-text').value = SAMPLES[key] || '';
+  document.getElementById('doc-text').value = sample.text;
   document.getElementById('doc-text').dispatchEvent(new Event('input'));
   document.getElementById('doc-text').scrollIntoView({behavior:'smooth',block:'center'});
 }
@@ -161,12 +165,12 @@ async function runValidation() {
   steps.forEach((s,i) => setTimeout(()=>{ document.getElementById(s).classList.add('on'); if(i>0) document.getElementById(steps[i-1]).classList.remove('on'); }, i*700));
   try {
     const res = await callClaude(valPrompt(currentDocType), `Validate this ${DOC_META[currentDocType]?.title}:\n\n${text}`);
+    validateReport(res);
     lastValReport = res;
     document.getElementById('cc-loading').classList.remove('on');
     steps.forEach(s=>document.getElementById(s).classList.remove('on'));
     renderValResults(res);
   } catch(err) {
-     if (isNavigationAbort(err)) return; 
     document.getElementById('cc-loading').classList.remove('on');
     document.getElementById('val-btn').disabled = false;
     steps.forEach(s=>document.getElementById(s).classList.remove('on'));
@@ -174,12 +178,24 @@ async function runValidation() {
   }
 }
 
+// The render function below already has fallbacks (`||{}`, `||'UNKNOWN'`)
+// that stop literal "undefined" text from appearing — but a response
+// missing verdict/summary entirely would still render as a mostly-blank
+// report the user could mistake for "the check passed cleanly". This
+// catches that case explicitly, as a clear error, before it ever
+// reaches the render step.
+function validateReport(r) {
+  const required = ['verdict', 'nsw_ready', 'summary'];
+  const missing = required.filter(k => !r[k]);
+  if (missing.length) throw new Error(`AI response missing fields: ${missing.join(', ')}`);
+}
+
 function renderValResults(r) {
   const vc = r.verdict==='CLEAR'?'vc-clear':r.verdict==='WARNING'?'vc-warn':'vc-err';
   const vi = r.verdict==='CLEAR'?'✓':r.verdict==='WARNING'?'⚠':'✗';
   const nc = r.nsw_ready==='YES'?'nr-yes':r.nsw_ready==='NO'?'nr-no':'nr-cond';
   const nt = r.nsw_ready==='YES'?'✓ NSW Ready':r.nsw_ready==='NO'?'✗ Not NSW Ready':'⚡ Fix First';
-  document.getElementById('verd-bar').innerHTML = `<div class="vchip ${vc}"><span class="vdot"></span>${vi} ${r.verdict}</div><div class="vreason">${r.verdict_reason||''}</div><div class="nsw-ready ${nc}">${nt}</div>`;
+  document.getElementById('verd-bar').innerHTML = `<div class="vchip ${vc}"><span class="vdot"></span>${vi} ${r.verdict || 'UNKNOWN'}</div><div class="vreason">${r.verdict_reason||''}</div><div class="nsw-ready ${nc}">${nt}</div>`;
   let fH=''; Object.entries(r.fields||{}).forEach(([k,v])=>{ const m=!v||v==='MISSING'; fH+=`<div class="frow"><span class="fk">${k}</span><span class="fv ${m?'fv-miss':'fv-ok'}">${m?'Missing':v}</span></div>`; });
   document.getElementById('fields-out').innerHTML = fH||'<div style="color:var(--text3);font-size:12px">No fields extracted</div>';
   let cH=''; Object.entries(r.checks||{}).forEach(([k,v])=>{ const s=typeof v==='object'?v.status:(v.toLowerCase().startsWith('pass')?'PASS':v.toLowerCase().startsWith('warn')?'WARN':'FAIL'); const n=typeof v==='object'?v.note:''; const c=s==='PASS'?'cv-p':s==='WARN'?'cv-w':'cv-f'; const i=s==='PASS'?'✓':s==='WARN'?'⚠':'✗'; cH+=`<div class="crow"><span class="ck">${k}</span><span class="cv ${c}" title="${n}">${i} ${s}</span></div>`; });
@@ -212,10 +228,9 @@ function copyValReport() {
   lines.push('FIELDS:'); Object.entries(r.fields||{}).forEach(([k,v])=>lines.push(`  ${k}: ${v}`));
   lines.push('\nISSUES:'); (r.issues||[]).forEach(i=>lines.push(`  [${i.severity.toUpperCase()}] ${i.title}: ${i.detail}`));
   lines.push('\nSUMMARY:', r.summary);
-  navigator.clipboard.writeText(lines.join('\n')).then(()=>showToast('Copied ✓','Report copied',true)).catch(()=>showToast('Failed','Copy manually',false));
+  copyToClipboard(lines.join('\n')).then(()=>showToast('Copied ✓','Report copied',true)).catch(()=>showToast('Failed','Copy manually',false));
 }
 
 // Register this page with the shell router
-runValidation = guardApiCall('doc-val', runValidation);
 window.PageInit = window.PageInit || {};
 window.PageInit['doc-val'] = initDocValidation;
