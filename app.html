@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; connect-src 'self' https://*.supabase.co; img-src 'self' data:;">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ClearAI Pro — Document Check, HS Code, Demurrage &amp; more</title>
@@ -60,7 +61,7 @@
     </div>
 
     <div class="nav-right">
-      <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Directory & quick actions">☰</button>
+      <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Directory & quick actions" aria-label="Open directory and quick actions menu">☰</button>
       <button class="back-to-landing" onclick="window.location.href='index.html'">← Home</button>
       <div class="pulse"></div>
       <span class="nav-pill">🇳🇬 Lekki DSP</span>
@@ -81,7 +82,7 @@
     </div>
     <span class="mobile-brand-text">Clear<em>AI</em> Pro</span>
   </a>
-  <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Directory & quick actions">☰</button>
+  <button class="sidebar-toggle-btn" onclick="toggleSidebar()" title="Directory & quick actions" aria-label="Open directory and quick actions menu">☰</button>
   <button class="back-to-landing" style="font-size:11px;padding:5px 10px" onclick="window.location.href='index.html'">← Home</button>
 </header>
 
@@ -131,7 +132,7 @@
   <aside class="sidebar-panel" id="sidebar-panel">
     <div class="sb-header">
       <span class="sb-title">Directory &amp; Shortcuts</span>
-      <button class="sb-close" onclick="toggleSidebar()">✕</button>
+      <button class="sb-close" onclick="toggleSidebar()" aria-label="Close menu">✕</button>
     </div>
 
     <div class="sb-section">
@@ -198,7 +199,7 @@
      anywhere in clearAi.html, so every toast call silently errored out).
      Added here so notifications actually work; markup matches the .toast
      CSS rules that did already exist (.toast b for the bold title). -->
-<div class="toast" id="toast">
+<div class="toast" id="toast" role="status" aria-live="polite">
   <b id="t-t"></b>
   <span id="t-m"></span>
 </div>

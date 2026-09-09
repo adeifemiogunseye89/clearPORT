@@ -90,57 +90,33 @@
     </div>
   </div>
 
-  <!-- SUBMISSIONS INBOX -->
+  <!-- HOW TO CHECK A SUBMISSION — honest replacement for the old
+       hardcoded "Submissions Inbox" mockup, which showed fake supplier
+       names and admitted right in its own footnote that it needed a
+       backend that didn't exist yet. That backend exists now — this
+       points to the real feature instead of pretending this page has
+       one. See STAGE_2_GUIDE.md / conversation notes for the reasoning
+       on why a real "inbox" (listing every submission for an agent
+       without a login system) is intentionally deferred, not built here. -->
   <div class="checker-card">
     <div class="cc-header">
       <div>
-        <div class="cc-title">Supplier Submissions Inbox</div>
-        <div class="cc-sub">Documents submitted by your suppliers — AI-checked on receipt</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <span class="nsw-chip" style="color:var(--green2);border-color:rgba(58,125,95,0.2);background:var(--gdim)">● Live</span>
+        <div class="cc-title">Checking What Your Supplier Sent</div>
+        <div class="cc-sub">What actually happens after you share a link</div>
       </div>
     </div>
     <div style="padding:1.2rem 1.5rem">
-      <div class="submission-list" id="scp-inbox">
-
-        <div class="sub-item">
-          <span class="sub-icon">🧾</span>
-          <div style="flex:1">
-            <div class="sub-name">Commercial Invoice + Packing List</div>
-            <div class="sub-from">From: Guangdong Electronics Co. · PO-2026-4821</div>
-          </div>
-          <div class="sub-time">2 hrs ago</div>
-          <span class="sub-status ss-issues">⚠ 2 issues</span>
-          <button class="btn-sm btn-out" onclick="reviewSubmission()" style="flex-shrink:0">Review</button>
-        </div>
-
-        <div class="sub-item">
-          <span class="sub-icon">📦</span>
-          <div style="flex:1">
-            <div class="sub-name">Packing List + SONCAP Draft</div>
-            <div class="sub-from">From: Shanghai Steel Corp · PO-2026-3901</div>
-          </div>
-          <div class="sub-time">Yesterday</div>
-          <span class="sub-status ss-checked">✓ Clear</span>
-          <button class="btn-sm btn-out" onclick="reviewSubmission()" style="flex-shrink:0">View</button>
-        </div>
-
-        <div class="sub-item">
-          <span class="sub-icon">🧾</span>
-          <div style="flex:1">
-            <div class="sub-name">Commercial Invoice + Packing List</div>
-            <div class="sub-from">From: Mumbai Pharma Exports · PO-2026-3744</div>
-          </div>
-          <div class="sub-time">2 days ago</div>
-          <span class="sub-status ss-pending">⏳ Pending check</span>
-          <button class="btn-sm btn-out" onclick="reviewSubmission()" style="flex-shrink:0">Check now</button>
-        </div>
-
+      <div class="scp-flow" style="margin-bottom:1rem">
+        <div class="scp-flow-node">📤 Supplier uploads via your link</div>
+        <div class="scp-flow-arr">→</div>
+        <div class="scp-flow-node">📧 You get an email notification</div>
+        <div class="scp-flow-arr">→</div>
+        <div class="scp-flow-node highlight">✓ You load it into Pre-Shipment Check</div>
       </div>
-      <div style="margin-top:1rem;font-size:11px;color:var(--text3);font-family:var(--mono);padding:10px;background:var(--bg3);border-radius:7px;border:1px solid var(--border)">
-        ℹ This inbox is illustrative — wiring it to real incoming submissions needs a backend (see Phase 1 in the production roadmap). Click "Preview supplier experience" below to see the actual AI check run live with your API key.
-      </div>
+      <p style="font-size:12.5px;color:var(--text2);line-height:1.75;margin-bottom:1rem">
+        Once your supplier submits, paste the <b>same link or token</b> you generated above into Pre-Shipment Check's "Load a Real Supplier Submission" box — it pulls in their actual uploaded files and runs the AI reconciliation against your Form M.
+      </p>
+      <button class="btn-sm btn-out" onclick="navTo(document.querySelector('.nav-item[onclick*=\'pre-check\']')||document.getElementById('btab-doc-val'),'pre-check')">Go to Pre-Shipment Check →</button>
     </div>
   </div>
 

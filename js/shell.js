@@ -59,9 +59,14 @@ window.addEventListener('DOMContentLoaded', () => {
   if (k) { apiKey = k; document.getElementById('api-key').value = k; setKeyStatus(true); }
   document.getElementById('api-key').addEventListener('input', e => { apiKey = e.target.value.trim(); updateAllBtns(); });
 
-  // Load the default page into the (initially empty) page container
+  // Load the default page into the (initially empty) page container.
+  // This first load replaces the current history entry rather than
+  // pushing a new one, matching what a user expects from a fresh
+  // page load rather than treating it as a mid-app navigation step.
   const defaultBtn = document.querySelector('.nav-item[onclick*="doc-val"]');
-  navTo(defaultBtn, 'doc-val');
+  navTo(defaultBtn, 'doc-val').then(() => {
+    history.replaceState({ pageId: 'doc-val' }, '', '#doc-val');
+  });
 });
 
 function setKeyStatus(ok) {
@@ -88,23 +93,58 @@ function updateAllBtns() {
 }
 
 // ── SHARED CLAUDE API CALL — every page module uses this
-// PUBLIC BETA: this now calls our own claude-proxy Edge Function
-// instead of api.anthropic.com directly. The real Anthropic key lives
-// only server-side now — `apiKey` here is actually the user's invite
-// code (kept under the same variable/localStorage name deliberately,
-// so every existing per-page `!apiKey` check across the whole app
-// keeps working unchanged; only what it represents has changed).
-// `attachments` is optional: an array of {media_type, data} where
-// `data` is base64 file content, used by Pre-Shipment Check's real-
-// document loading (Stage 6).
-/*async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000);
+// PUBLIC BETA: calls our own claude-proxy Edge Function instead of
+// api.anthropic.com directly. The real Anthropic key lives only
+// server-side — `apiKey` here is actually the user's invite code
+// (kept under the same variable/localStorage name deliberately, so
+// every existing per-page `!apiKey` check keeps working unchanged;
+// only what it represents has changed).
+//
+// Accepts an abort signal from the page-level guard below (via
+// window.CurrentPage._guardId), so navigating away mid-request or a
+// blocked double-click both cleanly cancel the in-flight call instead
+// of leaving it to finish pointlessly in the background.
+//
+// In-memory cache: identical inputs return the cached result instead
+// of a second paid call — worth more now than under the old bring-
+// your-own-key model, since every call here draws against a shared,
+// rate-limited invite code. Intentionally in-memory only (a plain
+// Map, not localStorage) — cleared on reload, never written to disk.
+const _responseCache = new Map();
+
+async function _hashRequest(system, userMsg, attachments) {
+  const attSig = attachments.map(a => `${a.media_type}:${a.data.length}`).join('|');
+  const raw = system + '||' + userMsg + '||' + attSig;
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
+  const cacheKey = await _hashRequest(system, userMsg, attachments);
+  if (_responseCache.has(cacheKey)) {
+    return _responseCache.get(cacheKey);
+  }
+
+  // Abort signal comes from the currently-running page's guard entry,
+  // if one exists — lets guardApiCall()/abortApiCall() below actually
+  // cancel this specific in-flight request.
+  const pageId = window.CurrentPage?._guardId;
+  const guardSignal = pageId ? _apiGuard.get(pageId)?.abortCtrl?.signal : undefined;
+
+  const timeoutController = new AbortController();
+  const timeoutId = setTimeout(() => timeoutController.abort(), 30000);
+  // Combine the 30s hard timeout with the guard's cancellation signal —
+  // whichever fires first aborts the request. AbortSignal.any() is a
+  // newer API; fall back to the timeout alone on older browsers rather
+  // than fail outright — public beta testers may be on unknown devices.
+  const signal = (guardSignal && typeof AbortSignal.any === 'function')
+    ? AbortSignal.any([guardSignal, timeoutController.signal])
+    : timeoutController.signal;
 
   let r;
   try {
     r = await fetch(CLAUDE_PROXY_URL, {
-      signal: controller.signal,
+      signal,
       method: 'POST',
       headers: {
         'Content-Type':'application/json',
@@ -116,7 +156,11 @@ function updateAllBtns() {
       })
     });
   } catch (err) {
-    if (err.name === 'AbortError') throw new Error('Request timed out after 30s');
+    if (err.name === 'AbortError') {
+      throw guardSignal?.aborted && !timeoutController.signal.aborted
+        ? new Error('aborted') // navigation/guard cancellation — page modules check isNavigationAbort() for this exact message
+        : new Error('Request timed out after 30s');
+    }
     throw err;
   } finally {
     clearTimeout(timeoutId);
@@ -126,53 +170,9 @@ function updateAllBtns() {
   const d = await r.json();
   const textBlock = d.content?.find(b => b.type === 'text');
   if (!textBlock) throw new Error('AI returned no text block');
-  return JSON.parse(textBlock.text.replace(/```json|```/g,'').trim());
-}*/
-
-async function callClaude(system, userMsg, maxTokens = 1800, attachments = []) {
-  let content = userMsg;
-
-  if (attachments.length) {
-    content = attachments.map(att => ({
-      type: att.media_type === 'application/pdf' ? 'document' : 'image',
-      source: { type: 'base64', media_type: att.media_type, data: att.data }
-    }));
-    content.push({ type: 'text', text: userMsg });
-  }
-
-  // Derive abort signal from whichever page is currently running
-  const pageId = window.CurrentPage?._guardId;
-  const signal = pageId ? _apiGuard.get(pageId)?.abortCtrl?.signal : undefined;
-
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    signal,
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true'
-    },
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: maxTokens,
-      system,
-      messages: [{ role: 'user', content }]
-    })
-  });
-
-  if (!r.ok) {
-    const e = await r.json().catch(() => ({}));
-    throw new Error(e?.error?.message || `API error ${r.status}`);
-  }
-  const d = await r.json();
-  
-  // Defensive: find text block, don't assume content[0]
-  const textBlock = d.content?.find(b => b.type === 'text');
-  if (!textBlock) throw new Error('AI returned no text block');
-  
-  const raw = textBlock.text.replace(/```json|```/g, '').trim();
-  return JSON.parse(raw);
+  const parsed = JSON.parse(textBlock.text.replace(/```json|```/g,'').trim());
+  _responseCache.set(cacheKey, parsed);
+  return parsed;
 }
 
 // ══════════════════════════════════════
@@ -185,7 +185,7 @@ async function callClaude(system, userMsg, maxTokens = 1800, attachments = []) {
 //
 // The guard:
 // 1. Blocks concurrent calls with a toast ("Already running...")
-// 2. Attaches an AbortController to callClaude for cancellation
+// 2. Attaches an AbortController that callClaude() above honors
 // 3. Guarantees the flag is cleared even if the promise throws
 // ══════════════════════════════════════
 
@@ -221,7 +221,7 @@ function abortApiCall(pageId) {
 // the user navigating away mid-request. Prevents toasts and null-DOM
 // crashes on the new page.
 function isNavigationAbort(err) {
-  return err?.name === 'AbortError' || err?.message?.includes('aborted');
+  return err?.name === 'AbortError' || err?.message === 'aborted';
 }
 
 // ── NAVIGATION / ROUTER — fetches the target page's HTML fragment,
@@ -233,8 +233,9 @@ function isNavigationAbort(err) {
 const _loadedPageAssets = new Set(); // pageId -> full bundle (CSS+JS) loaded
 const _loadedScripts = new Set();    // pageId -> JS file loaded (script-only or full)
 
-async function navTo(btn, pageId) {
-    // ── BONUS: cancel any paid API work from the page we're leaving ──
+async function navTo(btn, pageId, pushHistory = true) {
+  // Cancel any paid API work from the page we're leaving — prevents a
+  // stale in-flight request from finishing pointlessly in the background.
   const leavingId = window.CurrentPage?._guardId;
   if (leavingId) abortApiCall(leavingId);
   const route = ROUTES[pageId];
@@ -266,11 +267,35 @@ async function navTo(btn, pageId) {
 
   window.scrollTo({top:0, behavior:'smooth'});
 
+  // Move focus to the freshly-loaded page's own heading. Without this,
+  // a keyboard or screen-reader user's focus is left on a nav button
+  // that's now visually in a different spot, or worse, on nothing at
+  // all — they'd have no indication navigation actually happened.
+  const heading = container.querySelector('.page-title, h1');
+  if (heading) { heading.setAttribute('tabindex', '-1'); heading.focus({ preventScroll: true }); }
+
   const init = window.PageInit && window.PageInit[pageId];
   if (typeof init === 'function') init();
 
   if (route.label) trackRecentlyUsed(pageId, route.label);
+
+  // Browser back/forward support. `pushHistory` is false only when
+  // THIS call is itself the result of a popstate event (see the
+  // listener below) — otherwise every back/forward press would push
+  // ANOTHER history entry instead of actually going back.
+  if (pushHistory) {
+    history.pushState({ pageId }, '', `#${pageId}`);
+  }
 }
+
+// Fires when the user presses the browser's actual Back/Forward
+// buttons. Re-runs navTo for whatever page was in that history entry,
+// with pushHistory=false so it doesn't create a new entry on top of
+// the one being navigated back to.
+window.addEventListener('popstate', (e) => {
+  const pageId = e.state?.pageId;
+  if (pageId && ROUTES[pageId]) navTo(null, pageId, false);
+});
 
 // Keep backward-compat alias some inline handlers may still use
 function nav(btn, pageId) { navTo(btn, pageId); }

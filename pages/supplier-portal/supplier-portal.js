@@ -125,10 +125,6 @@ function sendEmail() {
   window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
 }
 
-function reviewSubmission() {
-  showToast('Preview mode', 'Full inbox needs backend deployment — click "Preview supplier experience" below instead', false);
-}
-
 async function simulateSupplierSubmission() {
   if (!apiKey) { showToast('No API key','Connect your key above to preview the AI check',false); return; }
   const formmForCheck = RECON_SAMPLES.formm;
