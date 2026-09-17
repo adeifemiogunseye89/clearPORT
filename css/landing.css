@@ -177,6 +177,43 @@ body{
 .trust-item{display:flex;align-items:center;gap:5px; color:var(--green);}
 .trust-dot{width:4px;height:4px;border-radius:50%;background:var(--ink4)}
 
+.trust-slide {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    animation: trustFade 16s ease-in-out infinite;
+  }
+  .trust-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  @keyframes trustFade {
+    0%   { opacity: 0; transform: translateX(28px); }
+    3%   { opacity: 1; transform: translateX(0); }
+    22%  { opacity: 1; transform: translateX(0); }
+    25%  { opacity: 0; transform: translateX(-28px); }
+    100% { opacity: 0; transform: translateX(-28px); }
+  }
+
+  @media (max-width: 480px) {
+    .trust-grid { display: none; }
+    .trust-carousel { display: block; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .trust-slide {
+      animation: none;
+      position: static;
+      opacity: 1;
+      display: block;
+      margin-bottom: 10px;
+    }
+    .trust-carousel { aspect-ratio: unset; }
+  }
+
 /* HERO RIGHT — App Preview Card */
 .hero-right{
   animation:heroIn 0.8s 0.15s var(--ease) both;
