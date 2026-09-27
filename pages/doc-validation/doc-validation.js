@@ -176,7 +176,8 @@ async function runValidation() {
     document.getElementById('cc-loading').classList.remove('on');
     document.getElementById('val-btn').disabled = false;
     steps.forEach(s=>document.getElementById(s).classList.remove('on'));
-    showToast('Analysis failed', err.message.substring(0,120), false);
+    if (isNavigationAbort(err)) return;
+    handleClaudeError(err, 'Analysis failed');
   }
 }
 

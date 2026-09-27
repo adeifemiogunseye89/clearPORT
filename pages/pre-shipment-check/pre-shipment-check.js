@@ -225,7 +225,7 @@ async function runReconciliation() {
     document.getElementById('pr-loading').classList.remove('on');
     document.getElementById('pr-btn').disabled = false;
     steps.forEach(s=>document.getElementById(s).classList.remove('on'));
-    showToast('Reconciliation failed', err.message.substring(0,120), false);
+    handleClaudeError(err, 'Reconciliation failed');
   }
 }
 

@@ -144,7 +144,8 @@ async function simulateSupplierSubmission() {
     renderReconResults(res);
     showToast('Preview complete ✓', 'This is what happens the moment your supplier submits', true);
   } catch(err) {
-    showToast('Preview failed', err.message.substring(0,120), false);
+    if (isNavigationAbort(err)) return;
+    handleClaudeError(err, 'Preview failed');
   }
 }
 simulateSupplierSubmission = guardApiCall('supplier', simulateSupplierSubmission);

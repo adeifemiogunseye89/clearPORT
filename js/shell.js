@@ -119,6 +119,111 @@ async function _hashRequest(system, userMsg, attachments) {
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
+// ══════════════════════════════════════
+// TYPED PROXY ERRORS
+// The claude-proxy Edge Function can fail for several structurally
+// different reasons — bad/inactive invite code, a code that's spent its
+// total-use cap, a per-IP or per-code hourly rate limit, or Anthropic's
+// own API failing upstream — but every one of those used to collapse
+// into the same generic red toast built from whatever raw string the
+// server happened to send. This gives each category its own message
+// and, where it matters, its own follow-up action.
+//
+// VERIFIED, not guessed: this mapping is read directly off the actual
+// deployed claude-proxy source (pasted into this project's chat on
+// 2026-09-27 — see supabase/functions/claude-proxy/index.ts once that's
+// committed, per the "connect GitHub" step below). Every status code
+// and message string below corresponds to an exact `return json(...)`
+// line in that file. If claude-proxy is ever modified — new status
+// codes, new checks, reworded messages — this map needs re-verifying
+// against the new source, not assumed to still be accurate.
+//
+// Confirmed facts about the real contract (so nobody re-guesses these):
+// - No `error_code`/`code` field is ever sent — only a plain `error` string.
+// - No `Retry-After` header or `retry_after` field is ever sent on 429s.
+// - 403 is used for EXACTLY ONE thing: the invite code hit max_total_uses.
+//   It is not ambiguous the way I originally assumed — no text-sniffing needed.
+// - 502 means Anthropic's own API call failed (any status), never an
+//   invite-code or rate-limit problem — must not be lumped in with those.
+// ══════════════════════════════════════
+
+class ClaudeProxyError extends Error {
+  constructor(message, category) {
+    super(message);
+    this.name = 'ClaudeProxyError';
+    this.category = category; // 'invalid_code' | 'code_exhausted' | 'rate_limited' | 'upstream_error' | 'generic'
+  }
+}
+
+function classifyProxyError(status, body) {
+  const text = (body && body.error) || '';
+  switch (status) {
+    // Code not found (inviteError/!invite) OR code marked inactive (!invite.active).
+    // Both mean the same thing to the user: this code doesn't work, get a new one.
+    case 401:
+      return { category: 'invalid_code', message: text || 'Your invite code is invalid or inactive.' };
+    // Code found and active, but use_count has hit max_total_uses. Distinct from
+    // invalid_code because the code WAS legitimate — it's just spent, permanently.
+    case 403:
+      return { category: 'code_exhausted', message: text || 'This invite code has reached its usage limit.' };
+    // Either the per-IP cap (MAX_REQUESTS_PER_IP_PER_HOUR) or the per-code cap
+    // (MAX_REQUESTS_PER_CODE_PER_HOUR) — both transient, both reset hourly, both
+    // get the same treatment. The server's own message already says which.
+    case 429:
+      return { category: 'rate_limited', message: text || 'Too many requests right now — please wait and try again.' };
+    // Anthropic's own API call failed (see the `if (!anthropicRes.ok)` branch) —
+    // nothing wrong with the invite code, don't treat it like one.
+    case 502:
+      return { category: 'upstream_error', message: 'The AI service is temporarily having trouble — please try again in a moment.' };
+    // 400 (malformed request body — shouldn't happen from this app's own UI) and
+    // 500 (Supabase query failure / unhandled exception) are genuine server-side
+    // problems, not something a message-keyword guess should try to categorize.
+    default:
+      return { category: 'generic', message: text || `Request failed (${status})` };
+  }
+
+}
+
+// Shared UI response to a callClaude() failure. Call this from every
+// page's catch block instead of showToast(...) directly, so an invalid
+// code, an exhausted code, a rate limit, and an upstream Anthropic
+// failure each get a distinct, useful message. Both invalid_code and
+// code_exhausted clear the stored code and force re-entry — in both
+// cases this exact code will never succeed again, so leaving it saved
+// just sets the user up to retry something that can't work. rate_limited
+// and upstream_error are transient — the code itself is still fine, so
+// it's left in place.
+function handleClaudeError(err, fallbackTitle) {
+  if (!(err instanceof ClaudeProxyError)) {
+    showToast(fallbackTitle, err.message.substring(0, 120), false);
+    return;
+  }
+  switch (err.category) {
+    case 'invalid_code':
+      apiKey = '';
+      localStorage.removeItem('clearai_key');
+      setKeyStatus(false);
+      updateAllBtns();
+      showToast('Invite code invalid', err.message, false);
+      break;
+    case 'code_exhausted':
+      apiKey = '';
+      localStorage.removeItem('clearai_key');
+      setKeyStatus(false);
+      updateAllBtns();
+      showToast('Invite code used up', err.message, false);
+      break;
+    case 'rate_limited':
+      showToast('Too many requests', err.message, false);
+      break;
+    case 'upstream_error':
+      showToast('AI service hiccup', err.message, false);
+      break;
+    default:
+      showToast(fallbackTitle, err.message.substring(0, 120), false);
+  }
+}
+
 async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
   const cacheKey = await _hashRequest(system, userMsg, attachments);
   if (_responseCache.has(cacheKey)) {
@@ -166,7 +271,11 @@ async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
     clearTimeout(timeoutId);
   }
 
-  if (!r.ok) { const e = await r.json().catch(()=>({})); throw new Error(e?.error||`Request failed (${r.status})`); }
+  if (!r.ok) {
+    const body = await r.json().catch(() => ({}));
+    const { category, message } = classifyProxyError(r.status, body);
+    throw new ClaudeProxyError(message, category);
+  }
   const d = await r.json();
   const textBlock = d.content?.find(b => b.type === 'text');
   if (!textBlock) throw new Error('AI returned no text block');

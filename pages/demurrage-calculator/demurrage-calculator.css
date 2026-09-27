@@ -142,4 +142,13 @@
 .at-med .at-body b { color: var(--amber); }
 .at-low .at-body b { color: var(--green2); }
 .at-body span { color: var(--text2); font-size: 12px; }
+/* Tier day-range parsing warning */
+.dem-tier-warning {
+  display: flex; gap: 10px; padding: 10px 12px; border-radius: 8px;
+  font-size: 12.5px; line-height: 1.5; box-shadow: var(--shadow-xs);
+  background: var(--adim); border: 1px solid rgba(192,122,42,0.14);
+  margin-bottom: 12px;
+}
+.dem-tier-warning b { color: var(--amber); font-weight: 600; display: block; margin-bottom: 1px; }
+.dem-tier-warning span { color: var(--text2); font-size: 12px; }
 

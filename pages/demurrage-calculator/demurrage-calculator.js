@@ -25,6 +25,29 @@ function addTier() {
   recalcDemurrage();
 }
 
+// Parses a tier's day-range label — the text field the user fills in
+// (e.g. "1 – 4", "1-4", "10+", "11 +") — into { start, end }, where `end`
+// is Infinity for an open-ended top tier (e.g. "10+"). Returns null if the
+// label can't be confidently parsed, so the caller can fall back safely
+// AND surface that fact to the user instead of silently guessing.
+function parseTierRange(label) {
+  if (!label) return null;
+  const cleaned = String(label).trim();
+  // Open-ended tier: "10+", "11 +"
+  const openMatch = cleaned.match(/^(\d+)\s*\+$/);
+  if (openMatch) {
+    return { start: parseInt(openMatch[1], 10), end: Infinity };
+  }
+  // Closed range: "1 – 4", "1—4", "1-4" (normalise en/em dash to hyphen first)
+  const closedMatch = cleaned.replace(/[–—]/g, '-').match(/^(\d+)\s*-\s*(\d+)$/);
+  if (closedMatch) {
+    const start = parseInt(closedMatch[1], 10);
+    const end = parseInt(closedMatch[2], 10);
+    if (end >= start) return { start, end };
+  }
+  return null;
+}
+
 function daysBetween(d1, d2) {
   if (!d1 || !d2) return 0;
   const a = new Date(d1), b = new Date(d2);
@@ -108,30 +131,62 @@ function recalcDemurrage() {
   const highDelayDays = Math.max(0, (baseDelayDays + scHigh) - effectiveFree);
   const lowDelayDaysWithScenario = Math.max(0, (baseDelayDays + scLow) - effectiveFree);
 
-  // Read tiers dynamically — fully user-defined, nothing hardcoded in logic
+  // Read tiers dynamically — fully user-defined, nothing hardcoded in logic.
+  // Each tier's day-range label (e.g. "1 – 4") is parsed into a real width
+  // and used to size that tier's bucket. A label that can't be parsed falls
+  // back to FALLBACK_TIER_WIDTH_DAYS for that tier only, and is reported to
+  // the user via the warning banner below — it never fails silently.
+  const FALLBACK_TIER_WIDTH_DAYS = 5;
   const tierRows = document.querySelectorAll('#dem-tiers .tier-row');
   const tiers = [];
+  const unparsedTierLabels = [];
   tierRows.forEach((row, idx) => {
-    const rateInput = row.querySelectorAll('input')[1];
-    const rate = parseFloat(rateInput.value) || 0;
-    tiers.push(rate);
+    const inputs = row.querySelectorAll('input');
+    const rawLabel = inputs[0] ? inputs[0].value.trim() : '';
+    const rate = parseFloat(inputs[1] ? inputs[1].value : '') || 0;
+    const range = parseTierRange(rawLabel);
+    if (!range) {
+      unparsedTierLabels.push(rawLabel ? `Tier ${idx + 1} ("${rawLabel}")` : `Tier ${idx + 1} (empty)`);
+    }
+    tiers.push({ rate, range });
   });
+
+  // Surface the warning (or clear it) — never swallow a parse failure.
+  const warnEl = document.getElementById('dem-tier-warning');
+  if (warnEl) {
+    if (unparsedTierLabels.length > 0) {
+      warnEl.style.display = 'flex';
+      warnEl.innerHTML = `<span class="at-icon">⚠️</span><div class="at-body"><b>Couldn't read ${unparsedTierLabels.length === 1 ? 'a tier day-range' : 'some tier day-ranges'}</b><span>${unparsedTierLabels.join(', ')} — use a format like "1 – 4" or "10+". Falling back to a ${FALLBACK_TIER_WIDTH_DAYS}-day estimate for ${unparsedTierLabels.length === 1 ? 'it' : 'them'} until fixed.</span></div>`;
+    } else {
+      warnEl.style.display = 'none';
+      warnEl.innerHTML = '';
+    }
+  }
 
   function costForDays(days) {
     let cost = 0;
     let remaining = days;
-    let dayIdx = 0;
-    // Simple model: distribute days across tiers sequentially (tier 1 covers early days, etc.)
-    // Each tier is assumed to represent a contiguous day-range at that rate.
-    const daysPerTierGuess = 5; // fallback bucket width if user doesn't fully specify ranges — used only for distribution, not as a hidden rate
+    // Each tier consumes its own real day-width (parsed from what the user
+    // typed), not a uniform guessed bucket. Only a tier whose label failed
+    // to parse falls back to FALLBACK_TIER_WIDTH_DAYS, and that's flagged
+    // above rather than hidden.
     for (let i = 0; i < tiers.length && remaining > 0; i++) {
-      const daysInThisTier = Math.min(remaining, daysPerTierGuess);
-      cost += daysInThisTier * tiers[i] * containers;
+      const tier = tiers[i];
+      let tierWidth;
+      if (tier.range) {
+        tierWidth = tier.range.end === Infinity ? Infinity : (tier.range.end - tier.range.start + 1);
+      } else {
+        tierWidth = FALLBACK_TIER_WIDTH_DAYS;
+      }
+      const daysInThisTier = tierWidth === Infinity ? remaining : Math.min(remaining, tierWidth);
+      cost += daysInThisTier * tier.rate * containers;
       remaining -= daysInThisTier;
     }
     if (remaining > 0 && tiers.length > 0) {
-      // any days beyond defined tiers use the last (highest) tier rate
-      cost += remaining * tiers[tiers.length-1] * containers;
+      // Any days beyond the last defined tier's stated range fall back to
+      // that tier's rate — this mirrors real demurrage tariffs, which are
+      // almost always open-ended at the top tier.
+      cost += remaining * tiers[tiers.length - 1].rate * containers;
     }
     return cost;
   }

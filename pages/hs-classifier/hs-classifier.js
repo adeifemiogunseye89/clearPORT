@@ -52,7 +52,7 @@ async function runHS() {
     document.getElementById('hs-loading').style.display = 'none';
     document.getElementById('hs-empty').style.display = 'block';
     document.getElementById('hs-btn').disabled = false;
-    showToast('Classification failed', err.message.substring(0,120), false);
+    handleClaudeError(err, 'Classification failed');
   }
 }
 

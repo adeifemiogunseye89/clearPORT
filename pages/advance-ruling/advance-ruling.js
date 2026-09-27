@@ -67,7 +67,7 @@ async function runRulingCheck() {
      if (isNavigationAbort(err)) return; 
     document.getElementById('ar-loading').style.display = 'none';
     document.getElementById('ar-btn').disabled = false;
-    showToast('Check failed', err.message.substring(0,120), false);
+    handleClaudeError(err, 'Check failed');
   }
 }
 runRulingCheck = guardApiCall('ruling', runRulingCheck);
