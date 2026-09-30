@@ -53,8 +53,34 @@ const ROUTES = {
   'coming-soon':  { folder: 'coming-soon',           file: 'coming-soon',          label: 'Coming Soon' }
 };
 
+// ── OFFLINE BANNER ──
+// Shown whenever navigator.onLine is false. Registered up front (not
+// just inside DOMContentLoaded's init) because 'offline'/'online' can
+// fire at any point in the session, not only on load.
+function updateOfflineBanner() {
+  const banner = document.getElementById('offline-banner');
+  if (banner) banner.classList.toggle('on', !navigator.onLine);
+}
+window.addEventListener('online', updateOfflineBanner);
+window.addEventListener('offline', updateOfflineBanner);
+
+// ── SERVICE WORKER ──
+// Registers sw.js, which precaches the app shell + Demurrage Calculator
+// specifically (see sw.js's own header comment for why only that one
+// tool page). Wrapped so a browser without SW support, or a failed
+// registration, never breaks the app itself — offline support is a
+// progressive enhancement here, not a requirement to function online.
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch((err) => {
+      console.error('Service worker registration failed:', err);
+    });
+  });
+}
+
 // ── INIT
 window.addEventListener('DOMContentLoaded', () => {
+  updateOfflineBanner();
   const k = localStorage.getItem('clearai_key');
   if (k) { apiKey = k; document.getElementById('api-key').value = k; setKeyStatus(true); }
   document.getElementById('api-key').addEventListener('input', e => { apiKey = e.target.value.trim(); updateAllBtns(); });
@@ -412,7 +438,17 @@ async function navTo(btn, pageId, pushHistory = true) {
     container.innerHTML = await res.text();
   } catch (err) {
     window.Telemetry?.track('page_load', { message: err.message, tool: pageId });
-    container.innerHTML = `<div class="page-wrap"><p style="color:var(--red)">Could not load this page: ${err.message}. If you're opening this file directly (file://), you need to serve it over a local web server instead — see README.md.</p></div>`;
+    // The offline banner (see app.html) already warns in advance that
+    // only Demurrage Calculator works without a connection — but if
+    // someone clicks another tool anyway (banner missed, or offline
+    // mid-navigation), the failure itself needs to say so honestly.
+    // Without this branch, a plain network failure here fell through
+    // to the file:// / README.md message below, which is actively
+    // wrong advice for someone who's simply lost their connection.
+    const message = !navigator.onLine
+      ? `You're offline, and ${route.label} needs a live connection to work. Demurrage Calculator is the one tool that works fully offline — try that, or reconnect and try again.`
+      : `Could not load this page: ${err.message}. If you're opening this file directly (file://), you need to serve it over a local web server instead — see README.md.`;
+    container.innerHTML = `<div class="page-wrap"><p style="color:var(--red)">${message}</p></div>`;
     return;
   }
 
@@ -589,4 +625,3 @@ function showToast(title, msg, ok) {
 // separately-loadable pages — see index.html's "Open Platform" link and
 // app.html's "← Home" link. localStorage (the API key, recently-used list)
 // persists across that navigation same as it did across the old show/hide.
-
