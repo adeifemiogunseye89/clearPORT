@@ -58,7 +58,7 @@ async function runHS() {
 
 function renderHS(r, product) {
   document.getElementById('hs-res-sub').textContent = `Classification for: ${product}`;
-  document.getElementById('hs-hero').innerHTML = `<div class="hch-code">${r.primary_code||'—'}</div><div class="hch-desc">${r.code_description||''}</div><div class="hch-conf">Confidence: ${r.confidence||'—'} · ${r.confidence_reason||''}</div>`;
+  document.getElementById('hs-hero').innerHTML = `<div class="hch-code">${escapeHtml(r.primary_code||'—')}</div><div class="hch-desc">${escapeHtml(r.code_description||'')}</div><div class="hch-conf">Confidence: ${escapeHtml(String(r.confidence||'—'))} · ${escapeHtml(r.confidence_reason||'')}</div>`;
   const rows = [
     ['Import Duty',r.import_duty_rate,r.import_duty_rate==='0%'?'ok':'warn'],
     ['VAT',r.vat_rate||'7.5%','warn'],
@@ -67,11 +67,11 @@ function renderHS(r, product) {
     ['Total Effective Rate',r.total_effective_rate||'—','warn'],
     ['Common Misclassification',r.common_misclassification||'None','']
   ];
-  let dH=''; rows.forEach(([k,v,c])=>{ dH+=`<div class="info-row"><span class="ir-k">${k}</span><span class="ir-v ${c}">${v}</span></div>`; });
+  let dH=''; rows.forEach(([k,v,c])=>{ dH+=`<div class="info-row"><span class="ir-k">${escapeHtml(k)}</span><span class="ir-v ${c}">${escapeHtml(String(v))}</span></div>`; });
   document.getElementById('hs-details').innerHTML = dH;
-  let aH=''; (r.alternative_codes||[]).forEach(a=>{ aH+=`<span class="alt-chip" title="${a.description}">${a.code}</span>`; });
+  let aH=''; (r.alternative_codes||[]).forEach(a=>{ aH+=`<span class="alt-chip" title="${escapeHtml(a.description||'')}">${escapeHtml(a.code||'')}</span>`; });
   document.getElementById('hs-alts').innerHTML = aH||'<span style="font-size:12px;color:var(--text3)">No strong alternatives</span>';
-  let pH=''; (r.permits||[]).forEach(p=>{ const c=p.requirement==='REQUIRED'?'rp-required':p.requirement==='OPTIONAL'?'rp-optional':'rp-none'; pH+=`<div class="rp-item"><span class="rp-flag ${c}">${p.requirement}</span><span style="font-size:12px;color:var(--text2)">${p.name}</span></div>`; });
+  let pH=''; (r.permits||[]).forEach(p=>{ const c=p.requirement==='REQUIRED'?'rp-required':p.requirement==='OPTIONAL'?'rp-optional':'rp-none'; pH+=`<div class="rp-item"><span class="rp-flag ${c}">${escapeHtml(p.requirement||'')}</span><span style="font-size:12px;color:var(--text2)">${escapeHtml(p.name||'')}</span></div>`; });
   document.getElementById('hs-permits').innerHTML = pH||'<div style="font-size:12px;color:var(--text3)">No special permits identified</div>';
   document.getElementById('hs-summary').textContent = r.summary||'';
   document.getElementById('hs-result').classList.add('on');

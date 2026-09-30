@@ -136,7 +136,7 @@ async function loadRealSubmission() {
     }
 
     loadedAttachments = newAttachments;
-    status.innerHTML = `✓ Loaded ${data.documents.length} document(s) for ${data.ref} — paste your Form M below, then run reconciliation. <a href="#" onclick="clearLoadedSubmission();return false;" style="color:var(--text3);text-decoration:underline">Use pasted text instead</a>`;
+    status.innerHTML = `✓ Loaded ${data.documents.length} document(s) for ${escapeHtml(data.ref)} — paste your Form M below, then run reconciliation. <a href="#" onclick="clearLoadedSubmission();return false;" style="color:var(--text3);text-decoration:underline">Use pasted text instead</a>`;
     btn.disabled = false;
     onReconInput(); // refresh the Stage 2 badge now that real files count as "loaded"
   } catch (err) {
@@ -232,22 +232,22 @@ async function runReconciliation() {
 function renderReconResults(r) {
   const vc = r.verdict==='CONSISTENT'?'cv-clean':r.verdict==='MAJOR_MISMATCH'?'cv-issues':'cv-warnings';
   const vi = r.verdict==='CONSISTENT'?'✓':r.verdict==='MAJOR_MISMATCH'?'✗':'⚠';
-  document.getElementById('pr-verdict-box').innerHTML = `<div class="cross-verdict ${vc}"><span class="cross-verdict-icon">${vi}</span><div class="cross-verdict-body"><h3>${r.verdict.replace('_',' ')}</h3><p>${r.verdict_reason||''}</p></div></div>`;
+  document.getElementById('pr-verdict-box').innerHTML = `<div class="cross-verdict ${vc}"><span class="cross-verdict-icon">${vi}</span><div class="cross-verdict-body"><h3>${escapeHtml(String(r.verdict||'').replace('_',' '))}</h3><p>${escapeHtml(r.verdict_reason||'')}</p></div></div>`;
 
   let mH = '';
   (r.issues||[]).forEach(i=>{
     const cls = i.severity==='error'?'mc-error':i.severity==='warning'?'mc-warning':'mc-ok';
     const sevCls = i.severity==='error'?'mc-sev-e':i.severity==='warning'?'mc-sev-w':'mc-sev-o';
     let docsHtml = '';
-    (i.affected_docs||[]).forEach(d=>docsHtml+=`<span class="mc-doc-tag">${d}</span>`);
-    mH += `<div class="mismatch-card ${cls}"><div class="mc-header"><span class="mc-sev ${sevCls}">${i.severity.toUpperCase()}</span></div><div class="mc-title">${i.title}</div><div class="mc-detail">${i.detail}</div><div class="mc-docs">${docsHtml}</div></div>`;
+    (i.affected_docs||[]).forEach(d=>docsHtml+=`<span class="mc-doc-tag">${escapeHtml(d)}</span>`);
+    mH += `<div class="mismatch-card ${cls}"><div class="mc-header"><span class="mc-sev ${sevCls}">${escapeHtml(String(i.severity||'').toUpperCase())}</span></div><div class="mc-title">${escapeHtml(i.title||'')}</div><div class="mc-detail">${escapeHtml(i.detail||'')}</div><div class="mc-docs">${docsHtml}</div></div>`;
   });
   document.getElementById('pr-mismatches').innerHTML = mH || '<div style="color:var(--text3);font-size:12px;padding:1rem">No issues to flag.</div>';
 
   let tH = '<thead><tr><th>Field</th><th>Form M (baseline)</th><th>Supplier documents</th><th>Result</th></tr></thead><tbody>';
   (r.comparison||[]).forEach(c=>{
     const mCls = c.match==='MATCH'?'match':c.match==='MISMATCH'?'mismatch':'';
-    tH += `<tr><td class="field-name">${c.field}</td><td>${c.form_m_value||'—'}</td><td>${c.supplier_value||'—'}</td><td class="${mCls}">${c.match}</td></tr>`;
+    tH += `<tr><td class="field-name">${escapeHtml(c.field||'')}</td><td>${escapeHtml(c.form_m_value||'—')}</td><td>${escapeHtml(c.supplier_value||'—')}</td><td class="${mCls}">${escapeHtml(c.match||'')}</td></tr>`;
   });
   tH += '</tbody>';
   document.getElementById('pr-compare-table').innerHTML = tH;

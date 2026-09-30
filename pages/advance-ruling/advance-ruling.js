@@ -54,12 +54,12 @@ async function runRulingCheck() {
     const cls = res.consistency==='PLAUSIBLE'?'v-clear':res.consistency==='LIKELY_MISMATCH'?'v-error':'v-warning';
     const icon = res.consistency==='PLAUSIBLE'?'✓':res.consistency==='LIKELY_MISMATCH'?'✗':'⚠';
     document.getElementById('ar-result').innerHTML = `
-      <div class="verdict-chip ${cls}" style="margin-bottom:10px"><span class="v-dot"></span>${icon} ${res.consistency.replace('_',' ')}</div>
-      <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:10px">${res.reason}</p>
+      <div class="verdict-chip ${cls}" style="margin-bottom:10px"><span class="v-dot"></span>${icon} ${escapeHtml(String(res.consistency||'').replace('_',' '))}</div>
+      <p style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:10px">${escapeHtml(res.reason||'')}</p>
       <div class="rp-title" style="margin-bottom:6px">What this HS chapter typically covers</div>
-      <p style="font-size:12.5px;color:var(--text2);line-height:1.7;margin-bottom:10px">${res.hs_code_notes}</p>
+      <p style="font-size:12.5px;color:var(--text2);line-height:1.7;margin-bottom:10px">${escapeHtml(res.hs_code_notes||'')}</p>
       <div class="rp-title" style="margin-bottom:6px">Recommended next step</div>
-      <p style="font-size:12.5px;color:var(--text2);line-height:1.7">${res.recommendation}</p>
+      <p style="font-size:12.5px;color:var(--text2);line-height:1.7">${escapeHtml(res.recommendation||'')}</p>
       <div style="margin-top:12px;padding:9px 12px;background:var(--adim);border:1px solid rgba(192,122,42,0.2);border-radius:7px;font-size:11px;color:var(--amber);font-family:var(--mono)">⚠ AI-assisted plausibility check only — always confirm on the official NCS Advance Ruling portal.</div>`;
     document.getElementById('ar-result').style.display = 'block';
     document.getElementById('ar-btn').disabled = false;

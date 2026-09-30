@@ -236,6 +236,13 @@ async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
   const pageId = window.CurrentPage?._guardId;
   const guardSignal = pageId ? _apiGuard.get(pageId)?.abortCtrl?.signal : undefined;
 
+  // Observability: requestId ties this call to its row in the proxy's
+  // proxy_events table; tool says which page made it; both are safe
+  // (no user content). See js/telemetry.js for what is/isn't reported.
+  const requestId = (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()));
+  const tool = pageId || 'unknown';
+  const t0 = performance.now();
+
   const timeoutController = new AbortController();
   const timeoutId = setTimeout(() => timeoutController.abort(), 30000);
   // Combine the 30s hard timeout with the guard's cancellation signal —
@@ -257,15 +264,22 @@ async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
       },
       body: JSON.stringify({
         inviteCode: apiKey,
-        system, userMsg, maxTokens, attachments
+        system, userMsg, maxTokens, attachments,
+        requestId, tool, visitorId: window.Telemetry?.visitorId
       })
     });
   } catch (err) {
     if (err.name === 'AbortError') {
-      throw guardSignal?.aborted && !timeoutController.signal.aborted
-        ? new Error('aborted') // navigation/guard cancellation — page modules check isNavigationAbort() for this exact message
-        : new Error('Request timed out after 30s');
+      if (guardSignal?.aborted && !timeoutController.signal.aborted) {
+        throw new Error('aborted'); // navigation/guard cancellation — page modules check isNavigationAbort() for this exact message
+      }
+      window.Telemetry?.track('timeout', { tool, requestId, latencyMs: performance.now() - t0 });
+      throw new Error('Request timed out after 30s');
     }
+    // fetch() itself rejected: offline, DNS, or the CORS-looking failure
+    // that the "Verify JWT" gotcha causes — which never reaches the proxy,
+    // so this is the ONLY place it can ever be seen.
+    window.Telemetry?.track('network', { message: err.message, tool, requestId, latencyMs: performance.now() - t0 });
     throw err;
   } finally {
     clearTimeout(timeoutId);
@@ -278,8 +292,19 @@ async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
   }
   const d = await r.json();
   const textBlock = d.content?.find(b => b.type === 'text');
-  if (!textBlock) throw new Error('AI returned no text block');
-  const parsed = JSON.parse(textBlock.text.replace(/```json|```/g,'').trim());
+  if (!textBlock) {
+    window.Telemetry?.track('no_text_block', { tool, requestId, latencyMs: performance.now() - t0 });
+    throw new Error('AI returned no text block');
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(textBlock.text.replace(/```json|```/g,'').trim());
+  } catch (parseErr) {
+    // Fixed message on purpose — the raw SyntaxError text can echo part
+    // of the AI's output, which may contain the user's document content.
+    window.Telemetry?.track('parse_error', { message: 'AI response was not valid JSON', tool, requestId, latencyMs: performance.now() - t0 });
+    throw new Error("The AI returned a response we couldn't read. Please try again.");
+  }
   _responseCache.set(cacheKey, parsed);
   return parsed;
 }
@@ -329,6 +354,24 @@ function abortApiCall(pageId) {
 // Helper: page modules use this to silently swallow errors caused by
 // the user navigating away mid-request. Prevents toasts and null-DOM
 // crashes on the new page.
+// Shared across every tool page loaded through this shell — escapes
+// AI-response text before it's interpolated into innerHTML. Added
+// 2026-09-29: every tool page was rendering Claude's JSON fields
+// (verdict_reason, issue titles/details, etc.) directly into innerHTML
+// with no escaping at all. That's a real injection path, not just
+// theoretical: this app already treats uploaded document text as
+// untrusted (see the prompt-injection tag-wrapping in the AI prompts
+// themselves) — the same untrusted text can end up quoted back into a
+// JSON field like verdict_reason, and unescaped HTML in that field
+// would render (and, given this app's CSP still allows 'unsafe-inline',
+// execute) exactly like it would from any other unescaped user input.
+// Mirrors the escapeHtml() already used correctly in supplierlink.js.
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str == null ? '' : String(str);
+  return div.innerHTML;
+}
+
 function isNavigationAbort(err) {
   return err?.name === 'AbortError' || err?.message === 'aborted';
 }
@@ -368,6 +411,7 @@ async function navTo(btn, pageId, pushHistory = true) {
     if (!res.ok) throw new Error(`Could not load page (${res.status})`);
     container.innerHTML = await res.text();
   } catch (err) {
+    window.Telemetry?.track('page_load', { message: err.message, tool: pageId });
     container.innerHTML = `<div class="page-wrap"><p style="color:var(--red)">Could not load this page: ${err.message}. If you're opening this file directly (file://), you need to serve it over a local web server instead — see README.md.</p></div>`;
     return;
   }
