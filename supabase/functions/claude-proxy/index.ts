@@ -1,102 +1,94 @@
 // ══════════════════════════════════════════════════════════
-// ClearAI Pro — Supplier Portal backend
-// STAGE 2: The gatekeeper function
+// ClearAI Pro — Public beta AI proxy
+// Function name: claude-proxy (all lowercase — see the naming note
+// at the bottom of this file before you deploy it)
 //
-// Deploy this via: Supabase Dashboard → Edge Functions →
-// "Deploy a new function" → "Via Editor" → name it
-// "supplier-submission" → paste this in → Deploy.
+// This replaces every browser-side call to api.anthropic.com. The
+// real Anthropic key now lives ONLY here, as a secret, never sent to
+// any browser. Every request must carry a valid invite code, and is
+// rate-limited by IP regardless of the code, so a single visitor
+// can't hammer this even with a legitimate code.
 //
-// It does the ONE job Stage 1 deliberately left undone: checking
-// whether a token is real, unexpired, and not already used — before
-// anything is allowed to read a submission or write a file. Every
-// other piece of the app (the public upload page in Stage 3, the
-// "Generate Link" button in Stage 4) talks to Supabase THROUGH this
-// function, never directly — so all the validation logic lives in
-// one place you can read top to bottom, not scattered across policy
-// expressions.
+// OBSERVABILITY (added 2026-09-27): every response — success or
+// failure — is logged to proxy_events, correlated with the client's
+// telemetry via the SAME visitor_id/request_id js/telemetry.js and
+// shell.js already send. This was previously assumed by comments in
+// both those client files but never actually implemented here —
+// closing that gap is the entire point of this revision. Logging
+// NEVER blocks or can fail the actual response: it's fire-and-forget,
+// wrapped in EdgeRuntime.waitUntil() so it still completes after the
+// response is returned (Deno can tear down the isolate immediately
+// after respond() otherwise, silently dropping unawaited writes).
+// PRIVACY: mirrors js/telemetry.js's own rules — never logs document
+// text, system/user prompt content, AI responses, or the invite code
+// value itself (only its pass/fail outcome).
 //
-// SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY below are injected
-// automatically by Supabase for every deployed Edge Function — you
-// do not need to paste your service_role key anywhere yourself. That
-// key bypasses Row Level Security entirely, which is exactly why it
-// only ever lives here, server-side, and never in the browser.
-//
-// Two things this function does, based on the HTTP method used:
-//   GET  ?token=xxx        → "is this link valid? if so, what's it for?"
-//                             (used by Stage 3's page when it first loads)
-//   POST (token + files)   → "here are the documents" — validates
-//                             again, uploads to Storage, records the
-//                             documents rows, marks the submission
-//                             'submitted'
-//
-// FILE UPLOAD HARDENING (added 2026-09-29): the original version here
-// only checked the client-DECLARED file.type — a string any non-browser
-// caller (curl, a tampered page) can set to whatever it wants regardless
-// of the file's real content. That check is now backed by real content
-// inspection (magic-byte signature checking), a genuinely enforced size
-// cap (the old supplierlink.js one only warned, never blocked — see
-// PROJECT_STATUS_CLEARPORT.md), and a few adjacent tightenings found
-// while touching this file: sanitized storage filenames and generic
-// client-facing errors (full detail still goes to console.error, for
-// the Edge Function's own Logs tab — just not to the public caller).
-// This is NOT virus/malware signature scanning (ClamAV-style) — that
-// was deliberately deferred as a separate decision, since it means
-// sending suppliers' commercial documents to a third-party scanning
-// service, which is a real trade-off worth making knowingly rather
-// than inheriting from a checklist.
+// PROMPT VERSIONING (added 2026-09-30): every call now hashes its own
+// system prompt (SHA-256, first 12 hex chars) and self-registers that
+// hash — paired with the full prompt text and model — in
+// prompt_versions the first time it's ever seen. Every proxy_events row
+// now carries that same hash plus the model string, so any logged
+// result can be traced back to the EXACT prompt text that produced it,
+// not just "a version, somewhere." prompt_versions is deliberately NOT
+// covered by the data-retention cleanup function — it's the audit
+// trail itself (a handful of rows, one per distinct prompt that's ever
+// existed), not per-call operational noise like proxy_events is. Worth
+// knowing: proxy_events rows DO still age out under the existing
+// retention policy, so a specific call's full trace has the same
+// lifespan as any other operational log — only the prompt text itself
+// is kept indefinitely by default.
 // ══════════════════════════════════════════════════════════
 
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-// Shared with claude-proxy AND with the Node test suite — one
-// definition of this logic, imported everywhere, not a hand-copied
-// mirror of it. See _shared/validation.js's own header for why this
-// works identically in Deno (here) and Node (the tests).
-import { detectRealType, sanitizeFilename, formatSize } from '../_shared/validation.js'
+// Shared with supplier-submission AND with the Node test suite — one
+// definition, imported everywhere it's needed, so a test genuinely
+// proves what runs in production rather than a hand-copied mirror of
+// it. See _shared/validation.js's own header for why this works
+// identically in Deno (here) and Node (the tests) with no build step.
+import { sha256Hex, categoryForStatus } from '../_shared/validation.js'
 
-// Loosened for now so you can test this before Stage 3's page exists.
-// Once app.html/index.html are live on your real domain, narrow this
-// to that exact domain instead of '*'.
+// Named once, used both in the actual Anthropic call and in every
+// prompt_versions/proxy_events row — so the logged model can never
+// silently drift out of sync with what was actually used.
+const MODEL = 'claude-sonnet-4-20250514'
+
 const CORS_HEADERS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
-  })
+// Supabase's Edge Runtime keeps the isolate alive until any promise
+// passed to waitUntil() settles, even after the response has already
+// gone out. Without this, a fire-and-forget insert can be silently
+// dropped when Deno tears the isolate down right after respond() —
+// which would make this whole fix look like it works in testing and
+// quietly lose events in production. Never let a logging failure
+// affect the real request: always caught, never awaited by callers.
+function background(promise: Promise<unknown>) {
+  try {
+    // deno-lint-ignore no-explicit-any
+    const rt = (globalThis as any).EdgeRuntime
+    if (rt && typeof rt.waitUntil === 'function') {
+      rt.waitUntil(promise.catch(() => {}))
+    } else {
+      promise.catch(() => {})
+    }
+  } catch (_e) { /* observability must never break the proxy */ }
 }
-
-// ── Upload limits ──
-// Mirrors the number shown to suppliers in supplierlink.js — keep the
-// two in sync if you ever change one. Unlike that one, THIS is real
-// enforcement: the old client-side "check" only showed a warning and
-// still let an oversized file submit.
-const MAX_FILE_SIZE_BYTES = 4 * 1024 * 1024 // 4MB per file
-// Invoice + packing list combined, per submission. Nothing enforced
-// this before at all — a single submission's total storage footprint
-// was previously unbounded.
-const MAX_AGGREGATE_SIZE_BYTES = 8 * 1024 * 1024
-
-const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png'] as const
-type AllowedType = typeof ALLOWED_TYPES[number]
 
 // import.meta.main is true only when this file is run as the actual
-// entry point (production, when Supabase invokes it) — false if
-// another file imports it instead. detectRealType/sanitizeFilename/
-// formatSize now live in ../_shared/validation.js and are tested
-// directly from there, but this guard stays regardless: it's what
-// would let this file itself be imported later without that import
-// having the side effect of starting a server.
+// entry point (i.e. in production, when Supabase deploys and invokes
+// it) — false when another file `import`s it. sha256Hex/categoryForStatus
+// now live in ../_shared/validation.js and are tested directly from
+// there, but this guard stays regardless: it's what would let this
+// file itself be imported later (e.g. to test `handler` directly)
+// without that import having the side effect of starting a server.
 if (import.meta.main) {
   Deno.serve(handler)
 }
 
 async function handler(req: Request): Promise<Response> {
-  // Browsers send a pre-flight OPTIONS request before the real one —
-  // this just says "yes, you're allowed to ask."
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: CORS_HEADERS })
   }
@@ -106,164 +98,190 @@ async function handler(req: Request): Promise<Response> {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
   )
 
-  // ── GET: "is this link valid, and what's it asking for?" ──
-  if (req.method === 'GET') {
-    const token = new URL(req.url).searchParams.get('token')
-    if (!token) return json({ error: 'Missing token' }, 400)
+  // Real client IP — Supabase's gateway populates this correctly,
+  // confirmed directly against their own docs before building this.
+  // Computed up front (doesn't depend on the body) so even the
+  // earliest failure branches below can still be logged with it.
+  const forwardedFor = req.headers.get('x-forwarded-for') || ''
+  const ip = forwardedFor.split(',')[0].trim() || 'unknown'
+  const t0 = Date.now()
 
-    const { data: submission, error } = await supabase
-      .from('submissions')
-      .select('agent_name, supplier_name, ref, port, status, expires_at')
-      .eq('token', token)
-      .single()
+  // requestId/tool/visitorId are filled in once the body is parsed
+  // (may stay null for the earliest failures, e.g. a non-POST method
+  // or a body that isn't valid JSON at all — nothing to correlate yet).
+  let requestId: string | null = null
+  let tool: string | null = null
+  let visitorId: string | null = null
+  // Filled in once `system` is parsed (see below) — stays null for the
+  // earliest failures (bad method, unparseable body) where no prompt
+  // was ever read, same pattern as requestId/tool/visitorId above.
+  let promptVersion: string | null = null
 
-    if (error || !submission) return json({ error: 'Link not found' }, 404)
-    if (new Date(submission.expires_at) < new Date()) {
-      return json({ error: 'This link has expired' }, 410)
-    }
-    if (submission.status !== 'pending') {
-      return json({ error: 'Documents were already submitted for this link' }, 409)
-    }
-
-    // Only the fields the public page actually needs to display —
-    // deliberately not the whole row.
-    return json({
-      agent_name: submission.agent_name,
-      supplier_name: submission.supplier_name,
-      ref: submission.ref,
-      port: submission.port,
+  // Wraps json(): builds the response AND fires the proxy_events log
+  // for this exact status/message, using whatever correlation fields
+  // are known at the point this is called. Never awaited by the
+  // caller — logging latency never adds to response latency.
+  function respond(body: Record<string, unknown>, status = 200) {
+    const category = categoryForStatus(status)
+    const message = typeof body?.error === 'string' ? body.error.slice(0, 300) : null
+    background(supabase.from('proxy_events').insert({
+      visitor_id: visitorId,
+      request_id: requestId,
+      tool,
+      ip_address: ip,
+      status_code: status,
+      category,
+      message, // only ever the short, pre-scrubbed error string above — never document/prompt/response content
+      latency_ms: Date.now() - t0,
+      prompt_version: promptVersion,
+      model: MODEL,
+    }))
+    return new Response(JSON.stringify(body), {
+      status,
+      headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' },
     })
   }
 
-  // ── POST: "here are the documents" ──
-  if (req.method === 'POST') {
-    const formData = await req.formData()
-    const token = formData.get('token') as string | null
-    if (!token) return json({ error: 'Missing token' }, 400)
-
-    // Re-validate — never trust that the GET check earlier still
-    // holds true; the link could have expired or been used in between.
-    // Also pulling agent_email/ref/agent_name now — needed below to
-    // send the "a supplier just submitted" notification.
-    const { data: submission, error: subError } = await supabase
-      .from('submissions')
-      .select('id, status, expires_at, agent_email, agent_name, ref')
-      .eq('token', token)
-      .single()
-
-    if (subError || !submission) return json({ error: 'Link not found' }, 404)
-    if (new Date(submission.expires_at) < new Date()) return json({ error: 'Link expired' }, 410)
-    if (submission.status !== 'pending') return json({ error: 'Already submitted' }, 409)
-
-    const invoiceFile = formData.get('invoice') as File | null
-    const packingFile = formData.get('packing_list') as File | null
-    if (!invoiceFile && !packingFile) return json({ error: 'No files were attached' }, 400)
-
-    const presentFiles = [invoiceFile, packingFile].filter((f): f is File => !!f)
-
-    // ── Size: per-file, then aggregate. Real rejection, not a warning. ──
-    for (const file of presentFiles) {
-      if (file.size > MAX_FILE_SIZE_BYTES) {
-        return json({ error: `"${file.name}" is ${formatSize(file.size)}, which is over the ${formatSize(MAX_FILE_SIZE_BYTES)} limit per file. Please compress it or split it up.` }, 413)
-      }
-    }
-    const totalSize = presentFiles.reduce((sum, f) => sum + f.size, 0)
-    if (totalSize > MAX_AGGREGATE_SIZE_BYTES) {
-      return json({ error: `Your files total ${formatSize(totalSize)}, which is over the ${formatSize(MAX_AGGREGATE_SIZE_BYTES)} combined limit. Please compress them or submit separately.` }, 413)
-    }
-
-    // ── Content: verify actual file bytes, not the caller's claimed
-    // type. This is real content inspection, replacing the old check
-    // that only compared file.type (a client-controlled label) against
-    // ALLOWED_TYPES — a direct API call could set that label to
-    // anything regardless of what the file actually contained.
-    const detectedTypes = new Map<File, AllowedType>()
-    for (const file of presentFiles) {
-      const realType = await detectRealType(file)
-      if (!realType) {
-        return json({ error: `"${file.name}" doesn't look like a valid PDF, JPG, or PNG — please check the file and try again.` }, 400)
-      }
-      detectedTypes.set(file, realType)
-    }
-
-    const uploaded: { type: string; path: string }[] = []
-
-    for (const [fileType, file] of [
-      ['invoice', invoiceFile],
-      ['packing_list', packingFile],
-    ] as const) {
-      if (!file) continue
-      // Use the VERIFIED type from content inspection for both the
-      // storage path's extension hint and the stored contentType
-      // metadata — never the caller's claimed file.type. Serving a
-      // file later with an attacker-chosen Content-Type is its own
-      // risk (e.g. a payload mislabeled to render as HTML); this way
-      // storage only ever records what the bytes actually are.
-      const realType = detectedTypes.get(file)!
-      const path = `${submission.id}/${fileType}-${Date.now()}-${sanitizeFilename(file.name)}`
-      const { error: uploadError } = await supabase.storage
-        .from('supplier-documents')
-        .upload(path, file, { contentType: realType })
-      if (uploadError) {
-        // Full detail server-side only (Edge Function Logs tab) — the
-        // public caller gets a safe, generic message. The previous
-        // version returned uploadError.message directly, which could
-        // hand an anonymous caller internal bucket/path/policy detail
-        // for no benefit to a legitimate supplier.
-        console.error('Storage upload failed:', uploadError)
-        return json({ error: 'Upload failed — please try again.' }, 500)
-      }
-      uploaded.push({ type: fileType, path })
-    }
-
-    const rows = uploaded.map((u) => ({
-      submission_id: submission.id,
-      file_path: u.path,
-      file_type: u.type,
-    }))
-    const { error: docError } = await supabase.from('documents').insert(rows)
-    if (docError) {
-      console.error('Could not record documents row:', docError)
-      return json({ error: 'Upload failed — please try again.' }, 500)
-    }
-
-    await supabase.from('submissions').update({ status: 'submitted' }).eq('id', submission.id)
-
-    // Notify the agent, if we have an email to notify. Deliberately
-    // wrapped so a failed/misconfigured email never fails the upload
-    // itself — the supplier's files are already safely stored by this
-    // point, and that success shouldn't hinge on notification delivery.
-    if (submission.agent_email) {
-      try {
-        const resendKey = Deno.env.get('RESEND_API_KEY')
-        if (resendKey) {
-          await fetch('https://api.resend.com/emails', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${resendKey}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              // Sandbox sender — only reaches the email address you
-              // signed up to Resend with. Swap to your own verified
-              // domain (e.g. notify@clearai.pro) once you have one,
-              // so this can actually notify other agents in production.
-              from: 'ClearAI Pro <onboarding@resend.dev>',
-              to: [submission.agent_email],
-              subject: `Documents submitted for ${submission.ref}`,
-              html: `<p>Your supplier just submitted documents for <b>${submission.ref}</b>${submission.agent_name ? ` (${submission.agent_name})` : ''}.</p><p>Open ClearAI Pro's Pre-Shipment Check to review them.</p>`,
-            }),
-          })
-        } else {
-          console.error('RESEND_API_KEY secret not set — skipping notification email')
-        }
-      } catch (emailErr) {
-        console.error('Notification email failed:', emailErr)
-      }
-    }
-
-    return json({ success: true, uploaded: uploaded.length })
+  if (req.method !== 'POST') {
+    return respond({ error: 'Method not allowed' }, 405)
   }
 
-  return json({ error: 'Method not allowed' }, 405)
+  // Tune these three numbers freely — this is the whole "how generous is
+  // this beta" dial. Start conservative; it's easy to raise later.
+  const MAX_REQUESTS_PER_IP_PER_HOUR = 15
+  // Caps the COMBINED usage of one invite code across every IP using it —
+  // the one thing per-IP limiting alone can't stop: if a single code
+  // spreads further than intended (shared beyond who you gave it to),
+  // this bounds the total damage from that one code, independent of how
+  // many different people end up holding it.
+  const MAX_REQUESTS_PER_CODE_PER_HOUR = 60
+  const RATE_LIMIT_WINDOW_MINUTES = 60
+
+  const body = await req.json().catch(() => null)
+  if (!body) return respond({ error: 'Invalid request body' }, 400)
+
+  const { inviteCode: rawInviteCode, system, userMsg, maxTokens, attachments } = body
+  if (!rawInviteCode) return respond({ error: 'Missing invite code' }, 400)
+  // Case/whitespace were never meant to be part of what makes a code
+  // valid — a tester who mistypes "ClearPORT LAUNCH2026" as "clearport
+  // launch2026" should not be told their code is invalid over that.
+  // Normalize here, and everything downstream (lookup, usage logging,
+  // rate-limit counting) uses this one canonical form consistently.
+  // Stored codes are normalized the same way — see the companion
+  // migration that lowercases existing invite_codes.code values and
+  // adds a case-insensitive unique index so this can't drift back out
+  // of sync as new codes get added.
+  const inviteCode = String(rawInviteCode).trim().toLowerCase()
+  if (!inviteCode) return respond({ error: 'Missing invite code' }, 400) // whitespace-only input
+  // Correlation fields the client already sends (see shell.js) — now actually used.
+
+  requestId = typeof body.requestId === 'string' ? body.requestId.slice(0, 100) : null
+  tool = typeof body.tool === 'string' ? body.tool.slice(0, 100) : null
+  visitorId = typeof body.visitorId === 'string' ? body.visitorId.slice(0, 100) : null
+
+  if (!system || !userMsg) return respond({ error: 'Missing system or userMsg' }, 400)
+
+  // Hash this exact prompt text and self-register it if it's new.
+  // ON CONFLICT DO NOTHING (ignoreDuplicates) makes every call after
+  // the first for a given prompt a cheap no-op — only an actual prompt
+  // edit ever produces a new row here. Fire-and-forget like the
+  // proxy_events logging above: a registration failure must never
+  // block or fail the real request.
+  promptVersion = await sha256Hex(system)
+  background(supabase.from('prompt_versions').upsert(
+    { hash: promptVersion, system_prompt: system, model: MODEL, first_seen_tool: tool },
+    { onConflict: 'hash', ignoreDuplicates: true }
+  ))
+
+  // ── Check 1: is this invite code real, active, and under its cap? ──
+  const { data: invite, error: inviteError } = await supabase
+    .from('invite_codes')
+    .select('code, active, max_total_uses, use_count')
+    .eq('code', inviteCode)
+    .single()
+
+  if (inviteError || !invite) return respond({ error: 'Invalid invite code' }, 401)
+  if (!invite.active) return respond({ error: 'This invite code is no longer active' }, 401)
+  if (invite.max_total_uses !== null && invite.use_count >= invite.max_total_uses) {
+    return respond({ error: 'This invite code has reached its usage limit' }, 403)
+  }
+
+  // ── Check 2: has this individual IP made too many requests recently? ──
+  // (Applies regardless of invite code — protects against one visitor
+  // hammering the proxy even with a legitimate code.)
+  const windowStart = new Date(Date.now() - RATE_LIMIT_WINDOW_MINUTES * 60 * 1000).toISOString()
+  const { count, error: countError } = await supabase
+    .from('proxy_usage_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('ip_address', ip)
+    .gte('created_at', windowStart)
+
+  if (countError) return respond({ error: 'Could not check rate limit' }, 500)
+  if ((count ?? 0) >= MAX_REQUESTS_PER_IP_PER_HOUR) {
+    return respond({ error: `Rate limit reached — max ${MAX_REQUESTS_PER_IP_PER_HOUR} requests per hour. Try again later.` }, 429)
+  }
+
+  // ── Check 3: has THIS CODE, combined across every IP using it, been
+  // used too much recently? This is the one that actually matters if a
+  // code leaks beyond its intended audience — Check 2 alone wouldn't
+  // catch that, since each individual IP could still look fine.
+  const { count: codeCount, error: codeCountError } = await supabase
+    .from('proxy_usage_log')
+    .select('id', { count: 'exact', head: true })
+    .eq('invite_code', inviteCode)
+    .gte('created_at', windowStart)
+
+  if (codeCountError) return respond({ error: 'Could not check rate limit' }, 500)
+  if ((codeCount ?? 0) >= MAX_REQUESTS_PER_CODE_PER_HOUR) {
+    return respond({ error: 'This invite code is being used heavily right now — try again shortly.' }, 429)
+  }
+
+  // ── All checks passed — record usage, then actually call Claude ──
+  await supabase.from('proxy_usage_log').insert({ ip_address: ip, invite_code: inviteCode })
+  await supabase.from('invite_codes').update({ use_count: invite.use_count + 1 }).eq('code', inviteCode)
+
+  let content: unknown = userMsg
+  if (attachments && attachments.length) {
+    content = attachments.map((att: { media_type: string; data: string }) => ({
+      type: att.media_type === 'application/pdf' ? 'document' : 'image',
+      source: { type: 'base64', media_type: att.media_type, data: att.data },
+    }))
+    ;(content as unknown[]).push({ type: 'text', text: userMsg })
+  }
+
+  try {
+    const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': Deno.env.get('ANTHROPIC_API_KEY')!,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: maxTokens || 1800,
+        system,
+        messages: [{ role: 'user', content }],
+      }),
+    })
+
+    if (!anthropicRes.ok) {
+      const e = await anthropicRes.json().catch(() => ({}))
+      return respond({ error: e?.error?.message || `Claude API error ${anthropicRes.status}` }, 502)
+    }
+
+    const data = await anthropicRes.json()
+    return respond(data, 200)
+  } catch (err) {
+    return respond({ error: `Proxy request failed: ${(err as Error).message}` }, 500)
+  }
 }
+
+// ── NAMING NOTE — read before deploying ──
+// When you create this function in the dashboard, the name field must
+// read exactly: claude-proxy
+// Copy-paste it rather than typing it — a single wrong capital letter
+// here (exactly what happened with agent-Review earlier) will cause
+// the same confusing CORS-looking failure, with zero entries in this
+// function's own Logs tab, because the request never reaches this
+// code at all if the name doesn't match exactly.
