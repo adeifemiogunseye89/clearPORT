@@ -48,6 +48,40 @@ function parseTierRange(label) {
   return null;
 }
 
+// Pure: computes cost for a given number of chargeable days against a
+// set of { rate, range } tiers (as produced by parseTierRange above).
+// Promoted out of recalcDemurrage() (where it used to live as a
+// closure, capturing tiers/containers implicitly) specifically so it
+// can be unit-tested directly with explicit inputs — see
+// tests/demurrage-calculator.test.js. FALLBACK_TIER_WIDTH_DAYS mirrors
+// the constant recalcDemurrage() uses when a tier's label couldn't be
+// parsed; kept here, not passed as a parameter, since it's a fixed
+// fallback width, not something callers should vary per-call.
+const FALLBACK_TIER_WIDTH_DAYS = 5;
+function costForDays(days, tiers, containers) {
+  let cost = 0;
+  let remaining = days;
+  for (let i = 0; i < tiers.length && remaining > 0; i++) {
+    const tier = tiers[i];
+    let tierWidth;
+    if (tier.range) {
+      tierWidth = tier.range.end === Infinity ? Infinity : (tier.range.end - tier.range.start + 1);
+    } else {
+      tierWidth = FALLBACK_TIER_WIDTH_DAYS;
+    }
+    const daysInThisTier = tierWidth === Infinity ? remaining : Math.min(remaining, tierWidth);
+    cost += daysInThisTier * tier.rate * containers;
+    remaining -= daysInThisTier;
+  }
+  if (remaining > 0 && tiers.length > 0) {
+    // Any days beyond the last defined tier's stated range fall back to
+    // that tier's rate — this mirrors real demurrage tariffs, which are
+    // almost always open-ended at the top tier.
+    cost += remaining * tiers[tiers.length - 1].rate * containers;
+  }
+  return cost;
+}
+
 function daysBetween(d1, d2) {
   if (!d1 || !d2) return 0;
   const a = new Date(d1), b = new Date(d2);
@@ -136,7 +170,6 @@ function recalcDemurrage() {
   // and used to size that tier's bucket. A label that can't be parsed falls
   // back to FALLBACK_TIER_WIDTH_DAYS for that tier only, and is reported to
   // the user via the warning banner below — it never fails silently.
-  const FALLBACK_TIER_WIDTH_DAYS = 5;
   const tierRows = document.querySelectorAll('#dem-tiers .tier-row');
   const tiers = [];
   const unparsedTierLabels = [];
@@ -163,36 +196,8 @@ function recalcDemurrage() {
     }
   }
 
-  function costForDays(days) {
-    let cost = 0;
-    let remaining = days;
-    // Each tier consumes its own real day-width (parsed from what the user
-    // typed), not a uniform guessed bucket. Only a tier whose label failed
-    // to parse falls back to FALLBACK_TIER_WIDTH_DAYS, and that's flagged
-    // above rather than hidden.
-    for (let i = 0; i < tiers.length && remaining > 0; i++) {
-      const tier = tiers[i];
-      let tierWidth;
-      if (tier.range) {
-        tierWidth = tier.range.end === Infinity ? Infinity : (tier.range.end - tier.range.start + 1);
-      } else {
-        tierWidth = FALLBACK_TIER_WIDTH_DAYS;
-      }
-      const daysInThisTier = tierWidth === Infinity ? remaining : Math.min(remaining, tierWidth);
-      cost += daysInThisTier * tier.rate * containers;
-      remaining -= daysInThisTier;
-    }
-    if (remaining > 0 && tiers.length > 0) {
-      // Any days beyond the last defined tier's stated range fall back to
-      // that tier's rate — this mirrors real demurrage tariffs, which are
-      // almost always open-ended at the top tier.
-      cost += remaining * tiers[tiers.length - 1].rate * containers;
-    }
-    return cost;
-  }
-
-  const lowCost = costForDays(lowDelayDaysWithScenario) + (Math.max(0, lowDelayDaysWithScenario - storageFree) * storageRate * containers);
-  const highCost = costForDays(highDelayDays) + (Math.max(0, highDelayDays - storageFree) * storageRate * containers);
+  const lowCost = costForDays(lowDelayDaysWithScenario, tiers, containers) + (Math.max(0, lowDelayDaysWithScenario - storageFree) * storageRate * containers);
+  const highCost = costForDays(highDelayDays, tiers, containers) + (Math.max(0, highDelayDays - storageFree) * storageRate * containers);
 
   document.getElementById('dem-empty').style.display = 'none';
   document.getElementById('dem-live').classList.add('on');
@@ -214,9 +219,9 @@ function recalcDemurrage() {
   // Breakdown table
   let bH = '<thead><tr><th>Item</th><th>Days</th><th>Basis</th><th>Est. Cost (high case)</th></tr></thead><tbody>';
   bH += `<tr><td class="field-name">Free time (binding: min of terminal/line)</td><td class="day-col">${effectiveFree}</td><td class="rate-col">₦0</td><td class="cost-col">₦0</td></tr>`;
-  bH += `<tr><td class="field-name">Base delay (arrival → clearance)</td><td class="day-col">${baseDelayDays}</td><td class="rate-col">per your tiers</td><td class="cost-col">₦${Math.round(costForDays(lowDelayDays)).toLocaleString()}</td></tr>`;
+  bH += `<tr><td class="field-name">Base delay (arrival → clearance)</td><td class="day-col">${baseDelayDays}</td><td class="rate-col">per your tiers</td><td class="cost-col">₦${Math.round(costForDays(lowDelayDays, tiers, containers)).toLocaleString()}</td></tr>`;
   if (anyChecked) {
-    bH += `<tr><td class="field-name">Delay scenario (optional, editable)</td><td class="day-col">${scLow}–${scHigh}</td><td class="rate-col">per your tiers</td><td class="cost-col">₦${Math.round(costForDays(highDelayDays)-costForDays(lowDelayDays)).toLocaleString()}</td></tr>`;
+    bH += `<tr><td class="field-name">Delay scenario (optional, editable)</td><td class="day-col">${scLow}–${scHigh}</td><td class="rate-col">per your tiers</td><td class="cost-col">₦${Math.round(costForDays(highDelayDays, tiers, containers)-costForDays(lowDelayDays, tiers, containers)).toLocaleString()}</td></tr>`;
   }
   if (storageRate > 0) {
     bH += `<tr><td class="field-name">Terminal storage</td><td class="day-col">${Math.max(0,highDelayDays-storageFree)}</td><td class="rate-col">₦${storageRate.toLocaleString()}/day</td><td class="cost-col">₦${Math.round(Math.max(0,highDelayDays-storageFree)*storageRate*containers).toLocaleString()}</td></tr>`;
@@ -256,3 +261,12 @@ function copyDemReport() {
 
 window.PageInit = window.PageInit || {};
 window.PageInit['demurrage'] = initDemurrageCalculator;
+
+// Test-only export hook — a plain no-build-step <script> tag in the
+// browser never has a `module` global, so this is a complete no-op
+// there. In Node (Vitest), it lets tests/demurrage-calculator.test.js
+// import these exact functions directly — the real shipped code, not
+// a copy that could drift out of sync with it.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { parseTierRange, costForDays, daysBetween };
+}

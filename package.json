@@ -1,0 +1,14 @@
+{
+  "name": "clearport",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "lint": "eslint ."
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "@eslint/js": "^9.39.5",
+    "globals": "^17.13.0"
+  }
+}
