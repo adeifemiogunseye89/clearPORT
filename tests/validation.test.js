@@ -10,7 +10,7 @@ import {
   sanitizeFilename,
   detectRealType,
   formatSize,
-} from '../Supabase/functions/_shared/validation.js';
+} from '../supabase/functions/_shared/validation.js';
 
 test('categoryForStatus — every real status code claude-proxy can emit', () => {
   assert.equal(categoryForStatus(200), 'ok');
