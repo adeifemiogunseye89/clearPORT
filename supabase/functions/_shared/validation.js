@@ -72,3 +72,36 @@ export async function detectRealType(file) {
 export function formatSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(1) + 'MB'
 }
+
+// Extracts the text block from an Anthropic Messages API response and
+// parses it as JSON, after stripping markdown code fences (models
+// sometimes wrap structured output in them despite instructions not
+// to). Moved here from the CLIENT deliberately — this is what lets
+// claude-proxy confirm a response is actually usable BEFORE charging
+// the caller's quota for it, rather than charging for any 200 from
+// Anthropic regardless of whether the content inside it was usable.
+// Returns { error: false, parsed } on success, or
+// { error: true, reason } on failure — reason is one of
+// 'no_text_block' | 'truncated' | 'invalid_json', so the caller can
+// give a specific, honest explanation instead of one generic message
+// for every different cause. 'truncated' specifically means Anthropic
+// itself reported stop_reason === 'max_tokens' — the response was cut
+// off before finishing, not just malformed.
+export function parseClaudeJSON(anthropicResponse) {
+  const textBlock = anthropicResponse?.content?.find((b) => b && b.type === 'text')
+  if (!textBlock || typeof textBlock.text !== 'string') {
+    return { error: true, reason: 'no_text_block' }
+  }
+  const cleaned = textBlock.text.replace(/```json|```/g, '').trim()
+  let parsed
+  try {
+    parsed = JSON.parse(cleaned)
+  } catch (_e) {
+    if (anthropicResponse?.stop_reason === 'max_tokens') return { error: true, reason: 'truncated' }
+    return { error: true, reason: 'invalid_json' }
+  }
+  if (parsed === null || typeof parsed !== 'object') {
+    return { error: true, reason: 'invalid_json' }
+  }
+  return { error: false, parsed }
+}

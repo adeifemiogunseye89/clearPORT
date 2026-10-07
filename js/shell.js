@@ -95,10 +95,19 @@ window.addEventListener('DOMContentLoaded', () => {
   });
 });
 
-function setKeyStatus(ok) {
+// remaining/max are optional — present after any successful AI call
+// (see callClaude(), which reads them from the proxy's X-Quota-*
+// response headers), absent right after just saving a code before
+// its first real use. Showing the count here, persistently, is the
+// soft warning: no popup needed, the number is just always visible.
+function setKeyStatus(ok, remaining, max) {
   const el = document.getElementById('api-status');
   el.className = 'api-status' + (ok ? ' ok' : '');
-  el.innerHTML = ok ? '✓ Connected — all AI features active' : 'Required for all AI features — this beta runs on a shared, rate-limited connection, no personal API key needed';
+  if (ok && remaining != null && max != null) {
+    el.innerHTML = `✓ Connected — ${remaining} of ${max} checks left`;
+  } else {
+    el.innerHTML = ok ? '✓ Connected — all AI features active' : 'Required for all AI features — this beta runs on a shared, rate-limited connection, no personal API key needed';
+  }
 }
 
 function saveKey() {
@@ -316,19 +325,24 @@ async function callClaude(system, userMsg, maxTokens=1800, attachments=[]) {
     const { category, message } = classifyProxyError(r.status, body);
     throw new ClaudeProxyError(message, category);
   }
-  const d = await r.json();
-  const textBlock = d.content?.find(b => b.type === 'text');
-  if (!textBlock) {
-    window.Telemetry?.track('no_text_block', { tool, requestId, latencyMs: performance.now() - t0 });
-    throw new Error('AI returned no text block');
+  // Quota remaining, from the proxy's X-Quota-* response headers (see
+  // claude-proxy — only sent on a confirmed-successful call, since
+  // that's the only time quota is actually spent). Updates the
+  // persistent status text, not a popup — see setKeyStatus().
+  const quotaRemaining = r.headers.get('X-Quota-Remaining');
+  const quotaMax = r.headers.get('X-Quota-Max');
+  if (quotaRemaining != null && quotaMax != null) {
+    setKeyStatus(true, Number(quotaRemaining), Number(quotaMax));
   }
-  let parsed;
-  try {
-    parsed = JSON.parse(textBlock.text.replace(/```json|```/g,'').trim());
-  } catch (parseErr) {
-    // Fixed message on purpose — the raw SyntaxError text can echo part
-    // of the AI's output, which may contain the user's document content.
-    window.Telemetry?.track('parse_error', { message: 'AI response was not valid JSON', tool, requestId, latencyMs: performance.now() - t0 });
+  // The proxy now does its own fence-strip/JSON.parse/validation
+  // BEFORE ever returning 200 (see claude-proxy's parseClaudeJSON()) —
+  // a malformed or truncated AI response comes back as a typed 502
+  // instead, handled above in the !r.ok branch, before quota was ever
+  // spent on it. What arrives here is already confirmed to be a real,
+  // usable object — this is a light sanity check, not the real
+  // validation (that already happened server-side).
+  const parsed = await r.json();
+  if (parsed === null || typeof parsed !== 'object') {
     throw new Error("The AI returned a response we couldn't read. Please try again.");
   }
   _responseCache.set(cacheKey, parsed);
@@ -396,6 +410,40 @@ function escapeHtml(str) {
   const div = document.createElement('div');
   div.textContent = str == null ? '' : String(str);
   return div.innerHTML;
+}
+
+// Shared "Copy Report"/"Copy Estimate" clipboard helper — called from
+// doc-validation.js and demurrage-calculator.js, but was never actually
+// defined anywhere in this codebase until now (confirmed: it's been
+// throwing `copyToClipboard is not defined` on every click of either
+// button since this was first flagged in PROJECT_STATUS_CLEARPORT.md —
+// exactly the class of bug a basic lint pass catches immediately,
+// which is the whole point of adding one). Prefers the modern Clipboard
+// API; falls back to the older execCommand method for browsers or
+// non-secure (non-HTTPS/non-localhost) contexts where
+// navigator.clipboard isn't available at all. Always returns a
+// Promise, matching how both call sites already use it
+// (.then()/.catch()).
+function copyToClipboard(text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise((resolve, reject) => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      ok ? resolve() : reject(new Error('execCommand copy failed'));
+    } catch (err) {
+      reject(err);
+    }
+  });
 }
 
 function isNavigationAbort(err) {
@@ -625,3 +673,11 @@ function showToast(title, msg, ok) {
 // separately-loadable pages — see index.html's "Open Platform" link and
 // app.html's "← Home" link. localStorage (the API key, recently-used list)
 // persists across that navigation same as it did across the old show/hide.
+
+
+// Test-only export hook — same pattern as demurrage-calculator.js: a
+// no-op in the browser (no `module` global in a plain <script> tag),
+// and what lets tests/shell.test.js import the real functions directly.
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = { escapeHtml, classifyProxyError, isNavigationAbort, copyToClipboard };
+}

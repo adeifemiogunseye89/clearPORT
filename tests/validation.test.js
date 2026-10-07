@@ -10,6 +10,7 @@ import {
   sanitizeFilename,
   detectRealType,
   formatSize,
+  parseClaudeJSON,
 } from '../supabase/functions/_shared/validation.js';
 
 test('categoryForStatus — every real status code claude-proxy can emit', () => {
@@ -71,6 +72,47 @@ test('detectRealType — real signatures pass, disguised/adversarial content is 
   assert.equal(await detectRealType(adversarial.plainTextClaimingPdf), null);
   assert.equal(await detectRealType(adversarial.htmlScriptClaimingPng), null);
   assert.equal(await detectRealType(adversarial.empty), null);
+});
+
+test('parseClaudeJSON — real Anthropic response shapes, success and every failure reason', () => {
+  // Real success: plain JSON text block.
+  const good = { content: [{ type: 'text', text: '{"verdict":"PASS","issues":[]}' }], stop_reason: 'end_turn' };
+  const r1 = parseClaudeJSON(good);
+  assert.equal(r1.error, false);
+  assert.deepEqual(r1.parsed, { verdict: 'PASS', issues: [] });
+
+  // Success despite markdown fences — models sometimes add these anyway.
+  const fenced = { content: [{ type: 'text', text: '```json\n{"verdict":"FAIL"}\n```' }], stop_reason: 'end_turn' };
+  assert.equal(parseClaudeJSON(fenced).error, false);
+  assert.equal(parseClaudeJSON(fenced).parsed.verdict, 'FAIL');
+
+  // No text block at all (e.g. only a tool_use block, unexpected here).
+  const noText = { content: [{ type: 'image', source: {} }], stop_reason: 'end_turn' };
+  assert.deepEqual(parseClaudeJSON(noText), { error: true, reason: 'no_text_block' });
+
+  // Empty content array entirely.
+  assert.deepEqual(parseClaudeJSON({ content: [], stop_reason: 'end_turn' }), { error: true, reason: 'no_text_block' });
+
+  // Truncated: invalid JSON AND stop_reason says max_tokens — must be
+  // distinguished from a generic parse failure.
+  const truncated = { content: [{ type: 'text', text: '{"verdict":"PASS","issues":["one","tw' }], stop_reason: 'max_tokens' };
+  assert.deepEqual(parseClaudeJSON(truncated), { error: true, reason: 'truncated' });
+
+  // Malformed JSON, but NOT because of truncation (stop_reason is normal) —
+  // must NOT be reported as 'truncated', that would be a misleading cause.
+  const malformed = { content: [{ type: 'text', text: 'Sure, here is the analysis: {verdict: PASS}' }], stop_reason: 'end_turn' };
+  assert.deepEqual(parseClaudeJSON(malformed), { error: true, reason: 'invalid_json' });
+
+  // Valid JSON, but not an object (e.g. just a bare string or number) —
+  // every real tool expects an object, so this must still be rejected.
+  const bareString = { content: [{ type: 'text', text: '"just a string"' }], stop_reason: 'end_turn' };
+  assert.deepEqual(parseClaudeJSON(bareString), { error: true, reason: 'invalid_json' });
+  const bareNull = { content: [{ type: 'text', text: 'null' }], stop_reason: 'end_turn' };
+  assert.deepEqual(parseClaudeJSON(bareNull), { error: true, reason: 'invalid_json' });
+
+  // Missing content/response shape entirely — must not throw.
+  assert.deepEqual(parseClaudeJSON({}), { error: true, reason: 'no_text_block' });
+  assert.deepEqual(parseClaudeJSON(null), { error: true, reason: 'no_text_block' });
 });
 
 test('formatSize — human-readable MB with one decimal', () => {
