@@ -82,7 +82,7 @@ if ('serviceWorker' in navigator) {
 window.addEventListener('DOMContentLoaded', () => {
   updateOfflineBanner();
   const k = localStorage.getItem('clearai_key');
-  if (k) { apiKey = k; document.getElementById('api-key').value = k; setKeyStatus(true); }
+  if (k) { apiKey = k; document.getElementById('api-key').value = k; setKeyStatus(true); revalidateStoredKey(k); }
   document.getElementById('api-key').addEventListener('input', e => { apiKey = e.target.value.trim(); updateAllBtns(); });
 
   // Load the default page into the (initially empty) page container.
@@ -110,12 +110,92 @@ function setKeyStatus(ok, remaining, max) {
   }
 }
 
-function saveKey() {
+// Asks claude-proxy whether a code is usable RIGHT NOW, without making
+// an AI call or spending any quota (action:'validate' — see the proxy).
+// Never throws: always resolves to { ok:true, remaining, max } or
+// { ok:false, category, message }. 'invalid_code' and 'code_exhausted'
+// are DEFINITIVE rejections; anything else ('unreachable',
+// 'rate_limited', 'upstream_error', 'generic') means we couldn't get a
+// real answer, which callers must not treat as "the code is bad".
+async function validateInviteCode(code) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+  try {
+    const r = await fetch(CLAUDE_PROXY_URL, {
+      signal: controller.signal,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({ inviteCode: code, action: 'validate', tool: 'connect', visitorId: window.Telemetry?.visitorId }),
+    });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const { category, message } = classifyProxyError(r.status, body);
+      return { ok: false, category, message };
+    }
+    return { ok: true, remaining: body.remaining, max: body.max };
+  } catch {
+    return { ok: false, category: 'unreachable', message: "Couldn't reach the server to check your code — check your connection and try again." };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+// Drops a code the server has definitively rejected, so the UI stops
+// claiming a connection that doesn't exist.
+function _clearStoredKey() {
+  apiKey = '';
+  localStorage.removeItem('clearai_key');
+  setKeyStatus(false);
+  updateAllBtns();
+}
+
+let _connectInFlight = false;
+async function saveKey() {
   const k = document.getElementById('api-key').value.trim();
   if (!k) { showToast('Missing code','Paste your invite code first',false); return; }
-  apiKey = k; localStorage.setItem('clearai_key', k);
-  setKeyStatus(true); updateAllBtns();
-  showToast('Connected ✓','Invite code saved',true);
+  if (_connectInFlight) return;
+  _connectInFlight = true;
+  const statusEl = document.getElementById('api-status');
+  statusEl.className = 'api-status';
+  statusEl.textContent = 'Checking your code…';
+  try {
+    const res = await validateInviteCode(k);
+    if (res.ok) {
+      apiKey = k; localStorage.setItem('clearai_key', k);
+      setKeyStatus(true, res.remaining, res.max); updateAllBtns();
+      showToast('Connected ✓', `${res.remaining} of ${res.max} checks left`, true);
+    } else if (res.category === 'invalid_code') {
+      _clearStoredKey();
+      showToast('Invite code invalid', res.message, false);
+    } else if (res.category === 'code_exhausted') {
+      _clearStoredKey();
+      showToast('Invite code used up', res.message, false);
+    } else {
+      // No real answer (offline, throttled, server hiccup) — don't claim
+      // "Connected", but don't call the code bad either.
+      setKeyStatus(false);
+      showToast(res.category === 'rate_limited' ? 'Too many attempts' : "Couldn't verify your code", res.message, false);
+    }
+  } finally {
+    _connectInFlight = false;
+  }
+}
+
+// On page load, a code saved earlier is trusted optimistically (so a
+// flaky connection never logs anyone out), then quietly re-checked.
+// Only a DEFINITIVE rejection (expired / used up / deactivated since
+// last visit) clears it; an unreachable server changes nothing. The
+// apiKey === code guard stops a slow answer from clobbering a
+// different code the user has typed in the meantime.
+async function revalidateStoredKey(code) {
+  const res = await validateInviteCode(code);
+  if (apiKey !== code) return;
+  if (res.ok) {
+    setKeyStatus(true, res.remaining, res.max);
+  } else if (res.category === 'invalid_code' || res.category === 'code_exhausted') {
+    _clearStoredKey();
+    showToast(res.category === 'invalid_code' ? 'Invite code invalid' : 'Invite code used up', res.message, false);
+  }
 }
 
 // Refreshes only the currently-loaded page's own button state — see the

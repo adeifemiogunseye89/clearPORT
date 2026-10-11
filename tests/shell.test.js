@@ -22,9 +22,22 @@ function fakeDiv() {
   };
 }
 
+// validateInviteCode talks to the network, so the sandbox gets a fake
+// fetch whose behavior each test sets, and which records what it was
+// asked to send (so the tests can check the request itself, not just
+// how the response is interpreted).
+let nextFetch = () => Promise.reject(new Error('no fetch behavior set for this test'));
+let lastFetchCall = null;
+const fakeFetch = (url, init) => { lastFetchCall = { url, init }; return nextFetch(url, init); };
+const fakeResponse = (status, body) => ({ ok: status >= 200 && status < 300, status, json: () => Promise.resolve(body) });
+
 const scriptPath = new URL('../js/shell.js', import.meta.url);
-const { escapeHtml, classifyProxyError } = loadBrowserScript(scriptPath, {
+const { escapeHtml, classifyProxyError, validateInviteCode } = loadBrowserScript(scriptPath, {
   document: { createElement: (tag) => (tag === 'div' ? fakeDiv() : {}) },
+  fetch: fakeFetch,
+  AbortController,
+  setTimeout,
+  clearTimeout,
 });
 
 test('escapeHtml — neutralizes real injection payloads, leaves ordinary text untouched', () => {
@@ -50,4 +63,55 @@ test('classifyProxyError — every real status/message pair claude-proxy can emi
   assert.equal(classifyProxyError(502, { error: 'Claude API error 529' }).category, 'upstream_error');
   assert.equal(classifyProxyError(400, { error: 'Missing invite code' }).category, 'generic');
   assert.equal(classifyProxyError(500, { error: 'Proxy request failed: fetch failed' }).category, 'generic');
+});
+
+test('validateInviteCode — sends a validate action with NO prompt or document payload', async () => {
+  nextFetch = () => Promise.resolve(fakeResponse(200, { valid: true, remaining: 25, max: 25 }));
+  await validateInviteCode('abc123');
+  const sent = JSON.parse(lastFetchCall.init.body);
+  assert.equal(sent.inviteCode, 'abc123');
+  assert.equal(sent.action, 'validate');
+  // The whole point of validate is that it's cheap: nothing that could
+  // make the proxy think it should call Claude may ride along.
+  assert.equal(sent.system, undefined);
+  assert.equal(sent.userMsg, undefined);
+  assert.equal(sent.attachments, undefined);
+  assert.equal(lastFetchCall.init.method, 'POST');
+});
+
+test('validateInviteCode — a valid code returns the remaining quota', async () => {
+  nextFetch = () => Promise.resolve(fakeResponse(200, { valid: true, remaining: 22, max: 25 }));
+  const res = await validateInviteCode('good-code');
+  assert.equal(res.ok, true);
+  assert.equal(res.remaining, 22);
+  assert.equal(res.max, 25);
+});
+
+test('validateInviteCode — definitive rejections are labelled so callers can tell them from "no answer"', async () => {
+  nextFetch = () => Promise.resolve(fakeResponse(401, { error: 'Invalid invite code' }));
+  const bad = await validateInviteCode('nope');
+  assert.equal(bad.ok, false);
+  assert.equal(bad.category, 'invalid_code');
+
+  nextFetch = () => Promise.resolve(fakeResponse(403, { error: 'This invite code has reached its usage limit' }));
+  const spent = await validateInviteCode('spent');
+  assert.equal(spent.ok, false);
+  assert.equal(spent.category, 'code_exhausted');
+});
+
+test('validateInviteCode — throttled / unreachable are NOT reported as a bad code', async () => {
+  nextFetch = () => Promise.resolve(fakeResponse(429, { error: 'Too many invalid code attempts — please wait a few minutes and try again.' }));
+  const throttled = await validateInviteCode('x');
+  assert.equal(throttled.ok, false);
+  assert.equal(throttled.category, 'rate_limited');
+
+  // Network failure must resolve (never throw) and must not look like
+  // a definitive rejection — otherwise being offline would wipe a
+  // perfectly good saved code.
+  nextFetch = () => Promise.reject(new TypeError('Failed to fetch'));
+  const offline = await validateInviteCode('x');
+  assert.equal(offline.ok, false);
+  assert.equal(offline.category, 'unreachable');
+  assert.notEqual(offline.category, 'invalid_code');
+  assert.notEqual(offline.category, 'code_exhausted');
 });
