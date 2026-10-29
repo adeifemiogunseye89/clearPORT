@@ -207,6 +207,45 @@ function updateAllBtns() {
   }
 }
 
+// Creates a supplier upload link via claude-proxy (action:'create_submission')
+// and resolves to its token. Replaces the browser inserting into the
+// `submissions` table directly with just the public key — which let anyone
+// on the internet create links, with no invite code involved at all.
+// Throws like callClaude does: ClaudeProxyError for a server verdict
+// (invalid / used-up code, link cap reached, bad details), plain Error for
+// anything else — so the page can hand both to handleClaudeError().
+async function createSubmission({ agent, agentEmail, supplier, ref, port }) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  let r;
+  try {
+    r = await fetch(CLAUDE_PROXY_URL, {
+      signal: controller.signal,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        inviteCode: apiKey, action: 'create_submission', tool: 'create-submission',
+        visitorId: window.Telemetry?.visitorId,
+        agent, agentEmail, supplier, ref, port,
+      }),
+    });
+  } catch (err) {
+    if (err?.name === 'AbortError') throw new Error('The request timed out — please try again.');
+    throw new Error("Couldn't reach the server — check your connection and try again.");
+  } finally {
+    clearTimeout(timeoutId);
+  }
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) {
+    const { category, message } = classifyProxyError(r.status, body);
+    throw new ClaudeProxyError(message, category);
+  }
+  if (typeof body?.token !== 'string' || !body.token) {
+    throw new Error('The server did not return a link — please try again.');
+  }
+  return body.token;
+}
+
 // ── SHARED CLAUDE API CALL — every page module uses this
 // PUBLIC BETA: calls our own claude-proxy Edge Function instead of
 // api.anthropic.com directly. The real Anthropic key lives only

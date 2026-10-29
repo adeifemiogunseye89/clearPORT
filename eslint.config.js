@@ -31,6 +31,7 @@ const SHELL_GLOBALS = {
   escapeHtml: 'readonly',
   guardApiCall: 'readonly',
   copyToClipboard: 'readonly',
+  createSubmission: 'readonly',
 };
 
 // KNOWN, UNVERIFIED, NOT a false positive like the above — flagging

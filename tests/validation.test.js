@@ -11,6 +11,8 @@ import {
   detectRealType,
   formatSize,
   parseClaudeJSON,
+  escapeHtmlString,
+  cleanSubmissionInput,
 } from '../supabase/functions/_shared/validation.js';
 
 test('categoryForStatus — every real status code claude-proxy can emit', () => {
@@ -118,4 +120,43 @@ test('parseClaudeJSON — real Anthropic response shapes, success and every fail
 test('formatSize — human-readable MB with one decimal', () => {
   assert.equal(formatSize(4 * 1024 * 1024), '4.0MB');
   assert.equal(formatSize(1.5 * 1024 * 1024), '1.5MB');
+});
+
+test('escapeHtmlString — neutralizes markup in values that end up in an email body', () => {
+  assert.equal(escapeHtmlString('<img src=x onerror=alert(1)>'), '&lt;img src=x onerror=alert(1)&gt;');
+  assert.equal(escapeHtmlString('"><a href="http://evil">pay now</a>'), '&quot;&gt;&lt;a href=&quot;http://evil&quot;&gt;pay now&lt;/a&gt;');
+  assert.equal(escapeHtmlString("Tom & Jerry's"), 'Tom &amp; Jerry&#39;s');
+  assert.equal(escapeHtmlString('PO-2026/114'), 'PO-2026/114'); // ordinary refs pass through untouched
+  assert.equal(escapeHtmlString(null), '');
+  assert.equal(escapeHtmlString(undefined), '');
+});
+
+test('cleanSubmissionInput — accepts normal details and trims them', () => {
+  const r = cleanSubmissionInput({ agent: '  Ada Obi ', agentEmail: 'ada@example.com', supplier: 'Shenzhen Co', ref: 'PO-114', port: 'Lagos' });
+  assert.equal(r.error, undefined);
+  assert.deepEqual(r.value, { agent_name: 'Ada Obi', agent_email: 'ada@example.com', supplier_name: 'Shenzhen Co', ref: 'PO-114', port: 'Lagos' });
+  // Optional fields left blank become null, not empty strings.
+  const minimal = cleanSubmissionInput({ agent: 'Ada', ref: 'PO-1' });
+  assert.equal(minimal.value.agent_email, null);
+  assert.equal(minimal.value.supplier_name, null);
+  assert.equal(minimal.value.port, null);
+});
+
+test('cleanSubmissionInput — rejects missing required fields and malformed email', () => {
+  assert.ok(cleanSubmissionInput({ ref: 'PO-1' }).error);
+  assert.ok(cleanSubmissionInput({ agent: 'Ada' }).error);
+  assert.ok(cleanSubmissionInput({ agent: '   ', ref: 'PO-1' }).error, 'whitespace-only must not count as a name');
+  assert.ok(cleanSubmissionInput({ agent: 'Ada', ref: 'PO-1', agentEmail: 'not-an-email' }).error);
+  assert.ok(cleanSubmissionInput(null).error, 'must not throw on a missing body');
+  assert.ok(cleanSubmissionInput({ agent: 123, ref: 'PO-1' }).error, 'non-string fields are not accepted as strings');
+});
+
+test('cleanSubmissionInput — bounds lengths and strips line breaks (email subject injection)', () => {
+  const r = cleanSubmissionInput({ agent: 'Ada', ref: 'PO-1\r\nBcc: victim@example.com', agentEmail: 'ada@example.com' });
+  assert.equal(r.value.ref.includes('\n'), false);
+  assert.equal(r.value.ref.includes('\r'), false);
+  const long = cleanSubmissionInput({ agent: 'a'.repeat(500), ref: 'r'.repeat(500), supplier: 's'.repeat(500) });
+  assert.equal(long.value.agent_name.length, 120);
+  assert.equal(long.value.ref.length, 80);
+  assert.equal(long.value.supplier_name.length, 120);
 });

@@ -105,3 +105,55 @@ export function parseClaudeJSON(anthropicResponse) {
   }
   return { error: false, parsed }
 }
+
+// ── Used by claude-proxy (create_submission) and supplier-submission ──
+
+// Server-side HTML escaping for text that goes into an email body.
+// The browser has the DOM for this (escapeHtml in js/shell.js); Deno
+// doesn't, so this is the string-level equivalent. Needed because the
+// notification email interpolates submission.ref / agent_name — values
+// originally typed by whoever generated the link.
+export function escapeHtmlString(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+// Cleans and bounds the fields for a new supplier link. Until now there
+// was no server-side validation at all — the browser inserted straight
+// into the table, so lengths and content were whatever the caller sent.
+// Control characters (newlines etc.) are replaced with spaces: these
+// values end up in an email subject line, where a newline is a
+// header-injection risk. Returns { value } or { error }.
+export function cleanSubmissionInput(input) {
+  // Matching control characters is the whole point of this regex, so the
+  // no-control-regex rule (which exists to catch them by ACCIDENT) is off here.
+  // eslint-disable-next-line no-control-regex
+  const CONTROL_CHARS = /[\u0000-\u001f\u007f]+/g
+  const field = (v, max) =>
+    typeof v === 'string' ? v.replace(CONTROL_CHARS, ' ').trim().slice(0, max) : ''
+
+  const agent_name = field(input?.agent, 120)
+  const agent_email = field(input?.agentEmail, 254)
+  const supplier_name = field(input?.supplier, 120)
+  const ref = field(input?.ref, 80)
+  const port = field(input?.port, 80)
+
+  if (!agent_name) return { error: 'Your name is required.' }
+  if (!ref) return { error: 'A shipment reference is required.' }
+  if (agent_email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(agent_email)) {
+    return { error: "That email address doesn't look valid." }
+  }
+  return {
+    value: {
+      agent_name,
+      agent_email: agent_email || null,
+      supplier_name: supplier_name || null,
+      ref,
+      port: port || null,
+    },
+  }
+}

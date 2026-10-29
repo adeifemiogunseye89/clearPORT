@@ -48,37 +48,18 @@ async function generateSupplierLink() {
   const copyBtn = document.getElementById('scp-copy-btn');
 
   if (!agent || !ref) return; // button should already be disabled, this is just a safety net
+  // Links are now created through claude-proxy, which requires a valid
+  // invite code — so one has to be connected first.
+  if (!apiKey) { showToast('Invite code needed', 'Connect your invite code above first', false); return; }
 
   genBtn.disabled = true;
   genBtn.textContent = 'Generating...';
   copyBtn.disabled = true;
 
-  const token = crypto.randomUUID();
-
   try {
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/submissions`, {
-      method: 'POST',
-      headers: {
-        'apikey': SUPABASE_ANON_KEY, // apikey ONLY — see STAGE_2_GUIDE.md
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal', // we already have the token; no need for
-                                     // PostgREST to SELECT the row back, which
-                                     // would need a SELECT policy we don't have
-      },
-      body: JSON.stringify({
-        token,
-        agent_name: agent,
-        agent_email: agentEmail || null,
-        supplier_name: supplier || null,
-        ref,
-        port: port || null,
-      }),
-    });
-
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '');
-      throw new Error(errText || `Request failed (${res.status})`);
-    }
+    // The server generates the token and records which invite code created
+    // the link; nothing here talks to the submissions table directly anymore.
+    const token = await createSubmission({ agent, agentEmail, supplier, ref, port });
 
     // Build the real link relative to wherever this page is actually being
     // served from — works unchanged whether that's Live Server locally or
@@ -94,7 +75,7 @@ async function generateSupplierLink() {
     showToast('Link generated ✓', 'Ready to share with your supplier', true);
   } catch (err) {
      if (isNavigationAbort(err)) return; 
-    showToast('Could not generate link', err.message.substring(0, 120), false);
+    handleClaudeError(err, 'Could not generate link');
     display.textContent = 'Something went wrong — try again';
     display.classList.remove('active');
   } finally {
